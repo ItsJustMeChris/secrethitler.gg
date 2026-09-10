@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   ArrowRight,
   BookOpen,
+  Bot,
   Check,
   CheckCheck,
   ChevronDown,
@@ -19,6 +20,9 @@ import {
   LockKeyhole,
   MessageCircle,
   Plus,
+  Pause,
+  Play,
+  StepForward,
   Send,
   ShieldCheck,
   Skull,
@@ -35,6 +39,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { coachTip } from '@/lib/coach';
 import type { Action, GameView, Policy, Power } from '@/lib/game';
 
 type View = Omit<GameView, 'players'> & {
@@ -90,7 +103,12 @@ export default function GameTable() {
   const [game, setGame] = useState<View | null>(null);
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
-  const [entry, setEntry] = useState<'create' | 'join'>('create');
+  const [entry, setEntry] = useState<'create' | 'join' | 'solo'>('create');
+  const [seats, setSeats] = useState('5');
+  const [coaching, setCoaching] = useState(false);
+  const [readAloud, setReadAloud] = useState(false);
+  const [voiceAvailable, setVoiceAvailable] = useState(false);
+  const lastSpoken = useRef('');
   const [busy, setBusy] = useState(false);
   const [restoring, setRestoring] = useState(true);
   const [error, setError] = useState('');
@@ -122,12 +140,16 @@ export default function GameTable() {
     localStorage.removeItem('sh-room');
     history.replaceState(null, '', '/');
     setRoleOpen(false);
+    setReadAloud(false);
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   };
 
   useEffect(() => {
     // Browser storage is read after hydration; it is unavailable during server rendering.
     // oxlint-disable-next-line react/react-compiler
     setName(localStorage.getItem('sh-name') ?? '');
+    setCoaching(localStorage.getItem('sh-coach') === 'true');
+    setVoiceAvailable('speechSynthesis' in window);
     const invite = new URLSearchParams(location.search)
       .get('room')
       ?.toUpperCase();
@@ -170,7 +192,15 @@ export default function GameTable() {
     const poll = async () => {
       try {
         if (!document.hidden) {
-          const next = await api(undefined, room);
+          const current = gameRef.current;
+          const wakeBots =
+            current?.practice &&
+            !current.practice.paused &&
+            !['lobby', 'finished'].includes(current.phase) &&
+            !pending.current;
+          const next = wakeBots
+            ? await api({ operation: 'tick', code: room })
+            : await api(undefined, room);
           if (active && gameRef.current?.code === room) accept(next);
         }
       } catch (e) {
@@ -186,7 +216,11 @@ export default function GameTable() {
           }
         }
       }
-      if (active) timer = setTimeout(poll, 1500);
+      if (active)
+        timer = setTimeout(
+          poll,
+          gameRef.current?.practice?.pace === 'fast' ? 750 : 1500,
+        );
     };
     timer = setTimeout(poll, 1500);
     return () => {
@@ -208,7 +242,47 @@ export default function GameTable() {
     };
   }, [roleOpen]);
 
-  async function enter(operation: 'create' | 'join') {
+  const latestMessage = game?.messages.at(-1);
+  useEffect(() => {
+    if (!latestMessage || latestMessage.id === lastSpoken.current) return;
+    lastSpoken.current = latestMessage.id;
+    if (
+      !readAloud ||
+      !voiceAvailable ||
+      document.hidden ||
+      !gameRef.current?.players.some(
+        (p) => p.id === latestMessage.playerId && p.bot,
+      )
+    )
+      return;
+    const utterance = new SpeechSynthesisUtterance(
+      `${latestMessage.name}. ${latestMessage.text}`,
+    );
+    // Finish the current sentence rather than interrupting it at fast AI pace.
+    if (window.speechSynthesis.speaking) return;
+    const voices = window.speechSynthesis
+      .getVoices()
+      .filter((v) => v.lang.startsWith('en'));
+    const seat = gameRef.current.players.findIndex(
+      (p) => p.id === latestMessage.playerId,
+    );
+    if (voices.length) utterance.voice = voices[seat % voices.length];
+    utterance.rate = 1.05;
+    window.speechSynthesis.speak(utterance);
+  }, [latestMessage, readAloud, voiceAvailable]);
+  useEffect(() => {
+    if (!voiceAvailable) return;
+    const quiet = () => {
+      if (document.hidden) window.speechSynthesis.cancel();
+    };
+    document.addEventListener('visibilitychange', quiet);
+    return () => {
+      document.removeEventListener('visibilitychange', quiet);
+      window.speechSynthesis.cancel();
+    };
+  }, [voiceAvailable]);
+
+  async function enter(operation: 'create' | 'join' | 'solo') {
     if (pending.current) return;
     pending.current = true;
     setBusy(true);
@@ -217,6 +291,7 @@ export default function GameTable() {
       const next = await api({
         operation,
         name,
+        ...(operation === 'solo' ? { seats: Number(seats) } : {}),
         code: code.replace(/[\s-]/g, '').toUpperCase(),
       });
       accept(next);
@@ -224,6 +299,11 @@ export default function GameTable() {
       localStorage.setItem('sh-room', next.code);
       history.replaceState(null, '', `?room=${next.code}`);
       setMobilePanel('table');
+      if (operation === 'solo') {
+        setCoaching(true);
+        localStorage.setItem('sh-coach', 'true');
+        setRoleOpen(true);
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -287,6 +367,28 @@ export default function GameTable() {
       setTimeout(() => setCopied(false), 2500);
     } catch {
       setError(`Invite link: ${url}`);
+    }
+  }
+  async function stepBots() {
+    const current = gameRef.current;
+    if (!current || pending.current) return;
+    pending.current = true;
+    setBusy(true);
+    setError('');
+    try {
+      accept(
+        await api({
+          operation: 'tick',
+          code: current.code,
+          manual: true,
+          revision: current.revision,
+        }),
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      pending.current = false;
+      setBusy(false);
     }
   }
   const me = game?.players.find((p) => p.id === game.me.id);
@@ -401,6 +503,116 @@ export default function GameTable() {
                 : 'ORIGINAL RULES · 5–10 PLAYERS'}
             </span>
           </div>
+          {game && (
+            <div className="learning-tools">
+              <div className="learning-toolbar">
+                <label className="coach-toggle" htmlFor="coach-switch">
+                  <BookOpen size={17} /> Coach
+                  <Switch
+                    id="coach-switch"
+                    aria-label="Show learning coach"
+                    checked={coaching}
+                    onCheckedChange={(value) => {
+                      setCoaching(value);
+                      localStorage.setItem('sh-coach', String(value));
+                    }}
+                  />
+                </label>
+                {game.practice && (
+                  <span className="ai-table-label">
+                    <Bot size={17} /> {game.players.filter((p) => p.bot).length}{' '}
+                    AI players
+                  </span>
+                )}
+                {game.practice && voiceAvailable && (
+                  <label className="coach-toggle" htmlFor="voice-switch">
+                    Read AI aloud{' '}
+                    <Switch
+                      id="voice-switch"
+                      aria-label="Read AI dialogue aloud"
+                      checked={readAloud}
+                      onCheckedChange={(value) => {
+                        setReadAloud(value);
+                        if (!value) window.speechSynthesis.cancel();
+                      }}
+                    />
+                  </label>
+                )}
+                {game.practice &&
+                  game.hostId === game.me.id &&
+                  !['lobby', 'finished'].includes(game.phase) && (
+                    <div className="ai-controls">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={busy || !online}
+                        onClick={() =>
+                          act({
+                            type: 'practice-settings',
+                            paused: !game.practice!.paused,
+                          })
+                        }
+                      >
+                        {game.practice.paused ? <Play /> : <Pause />}
+                        {game.practice.paused ? 'Resume AI' : 'Pause AI'}
+                      </Button>
+                      {game.practice.paused && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={busy || !online}
+                          onClick={stepBots}
+                        >
+                          <StepForward /> One step
+                        </Button>
+                      )}
+                      <Select
+                        value={game.practice.pace}
+                        onValueChange={(v) => {
+                          if (v === 'normal' || v === 'fast')
+                            void act({ type: 'practice-settings', pace: v });
+                        }}
+                        disabled={busy || !online}
+                      >
+                        <SelectTrigger aria-label="AI pace" className="ai-pace">
+                          <SelectValue>
+                            {game.practice.pace === 'fast'
+                              ? 'Fast pace'
+                              : 'Normal pace'}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="normal">Normal pace</SelectItem>
+                          <SelectItem value="fast">Fast pace</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+              </div>
+              {coaching && <CoachCard game={game} />}
+              {game.practice?.paused && game.phase !== 'finished' && (
+                <p className="ai-paused-note">
+                  AI paused. Human turns are still available. The host can
+                  resume or advance one AI step.
+                </p>
+              )}
+              {game.practice && game.messages.length > 0 && (
+                <div className="table-talk-preview">
+                  <MessageCircle size={17} />
+                  <p>
+                    <b>{game.messages.at(-1)!.name}:</b>{' '}
+                    {game.messages.at(-1)!.text}
+                  </p>
+                  <button
+                    className="text-button"
+                    onClick={() => setMobilePanel('chat')}
+                  >
+                    Chat <ArrowRight size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           {inGame && (
             <div className="mobile-action">
               <ActionPanel
@@ -520,16 +732,19 @@ export default function GameTable() {
               </div>
               <h2>The table awaits.</h2>
               <p>
-                Gather 5–10 friends for a game of political intrigue and
-                betrayal.
+                Play with friends, AI opponents, or a mix of both. Learn the
+                game on your own, too.
               </p>
               <Tabs
                 value={entry}
-                onValueChange={(v) => setEntry(v as 'create' | 'join')}
+                onValueChange={(v) => setEntry(v as 'create' | 'join' | 'solo')}
               >
                 <TabsList className="entry-tabs">
-                  <TabsTrigger value="create">Create a table</TabsTrigger>
-                  <TabsTrigger value="join">Join a table</TabsTrigger>
+                  <TabsTrigger value="create">Create</TabsTrigger>
+                  <TabsTrigger value="join">Join</TabsTrigger>
+                  <TabsTrigger value="solo">
+                    <Bot size={16} /> Play solo
+                  </TabsTrigger>
                 </TabsList>
                 <form
                   onSubmit={(e) => {
@@ -570,6 +785,44 @@ export default function GameTable() {
                       />
                     </>
                   )}
+                  {entry === 'solo' && (
+                    <div className="solo-options">
+                      <label
+                        className="field-label"
+                        id="solo-size-label"
+                        htmlFor="solo-size"
+                      >
+                        TABLE SIZE
+                      </label>
+                      <Select
+                        value={seats}
+                        onValueChange={(v) => {
+                          if (v) setSeats(v);
+                        }}
+                      >
+                        <SelectTrigger
+                          id="solo-size"
+                          aria-labelledby="solo-size-label"
+                          className="solo-size"
+                        >
+                          <SelectValue>
+                            {seats} players · you + {Number(seats) - 1} AI
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[5, 6, 7, 8, 9, 10].map((n) => (
+                            <SelectItem key={n} value={String(n)}>
+                              {n} players · you + {n - 1} AI
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p>
+                        Original rules, secret roles, and a coach you can turn
+                        off. Five players is a good first table.
+                      </p>
+                    </div>
+                  )}
                   <Button
                     className="primary-button"
                     type="submit"
@@ -581,7 +834,9 @@ export default function GameTable() {
                         ? 'Checking your seat…'
                         : entry === 'create'
                           ? 'Create private table'
-                          : 'Join the table'}
+                          : entry === 'solo'
+                            ? 'Deal me in with AI'
+                            : 'Join the table'}
                     {!busy && <ArrowRight size={18} />}
                   </Button>
                 </form>
@@ -589,9 +844,11 @@ export default function GameTable() {
               <div className="entry-note">
                 <LockKeyhole size={14} />
                 <span>
-                  {entry === 'create'
-                    ? 'Invite-only. Share the room link with your friends.'
-                    : 'Use the code or link your host shared with you.'}
+                  {entry === 'solo'
+                    ? 'No waiting for other players. Your seat reconnects on refresh.'
+                    : entry === 'create'
+                      ? 'Invite friends and add AI to any empty seat, up to 10 players.'
+                      : 'Use the code or link your host shared with you.'}
                 </span>
               </div>
               <div className="entry-specs">
@@ -643,6 +900,29 @@ export default function GameTable() {
                       {me?.ready ? <CheckCheck /> : <Check />}
                       {me?.ready ? 'Ready — click to unready' : 'I’m ready'}
                     </Button>
+                    {game.hostId === game.me.id && (
+                      <Button
+                        variant="outline"
+                        className="add-bot-button"
+                        disabled={busy || game.players.length >= 10}
+                        onClick={() => act({ type: 'add-bot' })}
+                      >
+                        <Bot />{' '}
+                        {game.players.length >= 10
+                          ? 'Table full · 10 players'
+                          : 'Add AI player'}
+                      </Button>
+                    )}
+                    {game.hostId === game.me.id && game.players.length < 10 && (
+                      <Button
+                        variant="ghost"
+                        className="fill-bots-button"
+                        disabled={busy}
+                        onClick={() => act({ type: 'fill-bots' })}
+                      >
+                        Fill all empty seats with AI · 10 players
+                      </Button>
+                    )}
                     {game.hostId === game.me.id && (
                       <Button
                         className="start-button"
@@ -762,6 +1042,11 @@ export default function GameTable() {
                         {p.name}{' '}
                         {p.id === game.me.id && (
                           <span className="you-label">YOU</span>
+                        )}
+                        {p.bot && (
+                          <span className="bot-badge">
+                            <Bot size={12} /> AI
+                          </span>
                         )}
                       </b>
                       <span>
@@ -1036,6 +1321,15 @@ export default function GameTable() {
               during legislation and after execution. This version provides
               table text chat; use your own group call if desired.
             </p>
+            <p>
+              Hosts can add AI players to any waiting table, up to 10 total
+              seats. AI players use the same legal moves and private information
+              as human players. They use game strategy and 300 authored dialogue
+              lines, so they can bluff but do not hold unrestricted
+              conversations. The coach explains rules; AI claims are not
+              verified facts. Optional read-aloud uses your browser’s available
+              voices.
+            </p>
             <hr />
             <h3>Original game & artwork</h3>
             <p>
@@ -1285,6 +1579,24 @@ function PolicyBoard({
         )}
       </div>
     </div>
+  );
+}
+
+function CoachCard({ game }: { game: View }) {
+  const tip = coachTip(game);
+  return (
+    <section className="coach-card" aria-label="Learning coach">
+      <span className="coach-icon">
+        <BookOpen size={20} />
+      </span>
+      <div>
+        <h3>{tip.title}</h3>
+        <p>{tip.text}</p>
+        <span className="coach-footnote">
+          Coach explains the rules. Player chat can contain bluffs.
+        </span>
+      </div>
+    </section>
   );
 }
 
@@ -1571,7 +1883,16 @@ function Conversation({
                   className={`chat-message ${m.playerId === game.me.id ? 'own-message' : ''}`}
                 >
                   <div>
-                    <b>{m.name}</b>
+                    <b>
+                      {m.name}{' '}
+                      {game.players.some(
+                        (p) => p.id === m.playerId && p.bot,
+                      ) && (
+                        <span className="bot-badge">
+                          <Bot size={12} /> AI
+                        </span>
+                      )}
+                    </b>
                     <time>
                       {new Date(m.time).toLocaleTimeString([], {
                         hour: '2-digit',

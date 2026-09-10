@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import {
   applyAction,
+  addBot,
   joinGame,
   newGame,
   randomInt,
@@ -9,6 +10,7 @@ import {
   viewFor,
 } from './game';
 import type { Action, Game } from './game';
+import { authorizeTick, tickBots } from './bots';
 
 const WEEK = 7 * 86400_000;
 const COOKIE = 'sh_session';
@@ -185,17 +187,22 @@ async function projected(game: Game, id: string) {
     ...view,
     players: view.players.map((p) => ({
       ...p,
-      connected: seen.results.some(
-        (s) => s.id === p.id && s.last_seen > Date.now() - 45_000,
-      ),
+      connected:
+        p.bot ||
+        seen.results.some(
+          (s) => s.id === p.id && s.last_seen > Date.now() - 45_000,
+        ),
     })),
   };
 }
-async function updateRoom(code: string, mutate: (game: Game) => void) {
+async function updateRoom(
+  code: string,
+  mutate: (game: Game) => void | boolean,
+) {
   // Compare-and-swap makes all simultaneous moves linearizable across workers.
   for (let attempt = 0; attempt < 12; attempt++) {
     const { game, revision } = await readRoom(code);
-    mutate(game);
+    if (mutate(game) === false) return game;
     game.revision = revision + 1;
     game.updatedAt = Date.now();
     const result = await database()
@@ -229,14 +236,27 @@ export async function handle(request: Request) {
       return json(await projected(game, session.id), 200, session.cookie);
     }
     const input = await body(request);
-    const isEntry = input.operation === 'create' || input.operation === 'join';
+    const isEntry =
+      input.operation === 'create' ||
+      input.operation === 'join' ||
+      input.operation === 'solo';
     session = await identity(request, isEntry);
-    await rate(`write:${session.id}`, 80);
+    await rate(
+      `${input.operation === 'tick' ? 'bot-wake' : 'write'}:${session.id}`,
+      input.operation === 'tick' ? 100 : 80,
+    );
     if (isEntry) {
       const ip = request.headers.get('cf-connecting-ip') ?? 'local';
       await rate(`entry:${await hash(ip)}`, 40);
       const name = validName(input.name);
-      if (input.operation === 'create') {
+      if (input.operation !== 'join') {
+        if (
+          input.operation === 'solo' &&
+          (!Number.isInteger(input.seats) ||
+            Number(input.seats) < 5 ||
+            Number(input.seats) > 10)
+        )
+          throw new HttpError('Choose a table size from 5 to 10 players.', 400);
         await rate(`create:${session.id}`, 5, 300);
         await cleanup();
         const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -246,6 +266,12 @@ export async function handle(request: Request) {
             () => alphabet[randomInt(alphabet.length)],
           ).join('');
           const game = newGame(code, session.id, name);
+          if (input.operation === 'solo') {
+            while (game.players.length < Number(input.seats)) addBot(game);
+            game.players[0].ready = true;
+            applyAction(game, session.id, { type: 'start' });
+            game.practice!.nextAt = Date.now() + 5000;
+          }
           const row = await database()
             .prepare(
               'INSERT INTO rooms(code,state,revision,updated_at) VALUES (?,?,0,?) ON CONFLICT(code) DO NOTHING RETURNING code',
@@ -260,6 +286,23 @@ export async function handle(request: Request) {
       const game = await updateRoom(codeOf(input.code), (game) =>
         joinGame(game, session!.id, name),
       );
+      return json(await projected(game, session.id), 200, session.cookie);
+    }
+    if (input.operation === 'tick') {
+      if (input.manual !== undefined && typeof input.manual !== 'boolean')
+        throw new HttpError('Invalid step request.', 400);
+      const game = await updateRoom(codeOf(input.code), (game) => {
+        if (
+          !authorizeTick(
+            game,
+            session!.id,
+            input.manual === true,
+            input.revision,
+          )
+        )
+          return false;
+        return tickBots(game, Date.now(), input.manual === true);
+      });
       return json(await projected(game, session.id), 200, session.cookie);
     }
     if (input.operation !== 'action')

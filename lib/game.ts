@@ -17,6 +17,27 @@ export type Player = {
   alive: boolean;
   ready: boolean;
   role?: Role;
+  bot?: boolean;
+};
+export type BotMemory = {
+  trust: Record<string, number>;
+  seenLog: number;
+  confirmedNotHitler: string[];
+  usedLines: string[];
+  pendingClaim?: string;
+  lastDiscussion?: string;
+  passedHand?: Policy[];
+  pendingInvestigation?: string;
+  pendingPeek?: boolean;
+};
+export type Practice = {
+  paused: boolean;
+  pace: 'normal' | 'fast';
+  nextAt: number;
+  lastTalkAt: number;
+  lastReplyId: string;
+  memory: Record<string, BotMemory>;
+  lastReaction?: number;
 };
 export type Entry = { id: number; round: number; text: string };
 export type Message = {
@@ -26,8 +47,14 @@ export type Message = {
   text: string;
   time: number;
 };
-export type PrivateNote = { text: string; policies?: Policy[] };
+export type PrivateNote = {
+  text: string;
+  policies?: Policy[];
+  targetId?: string;
+  party?: Policy;
+};
 export type Game = {
+  practice?: Practice;
   code: string;
   hostId: string;
   players: Player[];
@@ -68,6 +95,9 @@ export type Game = {
   processed: string[];
 };
 export type Action =
+  | { type: 'add-bot' }
+  | { type: 'fill-bots' }
+  | { type: 'practice-settings'; paused?: boolean; pace?: 'normal' | 'fast' }
   | { type: 'ready' }
   | { type: 'start' }
   | { type: 'leave' }
@@ -190,6 +220,47 @@ export function joinGame(game: Game, id: string, name: string) {
     'That name is already seated. Choose another.',
   );
   game.players.push({ id, name: clean, ready: false, alive: true });
+  if (!game.hostId) game.hostId = id;
+}
+const BOT_NAMES = [
+  'Ada',
+  'Bruno',
+  'Clara',
+  'Dieter',
+  'Emilia',
+  'Felix',
+  'Greta',
+  'Hugo',
+  'Ingrid',
+  'Jonas',
+];
+export function addBot(game: Game) {
+  requireRule(
+    game.phase === 'lobby',
+    'AI players can only join before the deal.',
+  );
+  requireRule(game.players.length < 10, 'This table is full.');
+  const name =
+    BOT_NAMES.find(
+      (n) =>
+        !game.players.some((p) => p.name.toLowerCase() === n.toLowerCase()),
+    ) ?? `AI ${game.players.length}`;
+  game.players.push({
+    id: crypto.randomUUID(),
+    name,
+    alive: true,
+    ready: true,
+    bot: true,
+  });
+  for (const player of game.players) if (!player.bot) player.ready = false;
+  game.practice ??= {
+    paused: false,
+    pace: 'normal',
+    nextAt: 0,
+    lastTalkAt: 0,
+    lastReplyId: '',
+    memory: {},
+  };
 }
 function log(game: Game, text: string) {
   game.log.push({ id: ++game.logSequence, round: game.round, text });
@@ -288,6 +359,33 @@ function addNote(game: Game, id: string, note: PrivateNote) {
 export function applyAction(game: Game, actorId: string, action: Action) {
   const actor = game.players.find((p) => p.id === actorId);
   requireRule(actor, 'You are not seated at this table.');
+  if (action.type === 'add-bot' || action.type === 'fill-bots') {
+    requireRule(actorId === game.hostId, 'Only the host can add AI players.');
+    addBot(game);
+    if (action.type === 'fill-bots')
+      while (game.players.length < 10) addBot(game);
+    return;
+  }
+  if (action.type === 'practice-settings') {
+    requireRule(
+      actorId === game.hostId && game.practice,
+      'Only the host can change the AI pace.',
+    );
+    requireRule(
+      action.paused === undefined || typeof action.paused === 'boolean',
+      'Invalid pause setting.',
+    );
+    requireRule(
+      action.pace === undefined ||
+        action.pace === 'normal' ||
+        action.pace === 'fast',
+      'Invalid AI pace.',
+    );
+    if (action.paused !== undefined) game.practice.paused = action.paused;
+    if (action.pace !== undefined) game.practice.pace = action.pace;
+    game.practice.nextAt = Date.now() + 1200;
+    return;
+  }
   if (action.type === 'chat') {
     requireRule(
       actor.alive || game.phase === 'finished',
@@ -327,14 +425,26 @@ export function applyAction(game: Game, actorId: string, action: Action) {
       id: p.id,
       name: p.name,
       alive: true,
-      ready: false,
+      ready: !!p.bot,
+      ...(p.bot ? { bot: true } : {}),
     }));
+    const practice = game.practice
+      ? {
+          ...game.practice,
+          memory: {},
+          nextAt: 0,
+          lastTalkAt: 0,
+          lastReplyId: '',
+          lastReaction: 0,
+        }
+      : undefined;
     const fresh = newGame(game.code, game.hostId, actor.name);
     Object.assign(game, fresh, {
       players,
       revision: game.revision,
       processed: game.processed,
       round: game.round + 1,
+      practice,
     });
     return;
   }
@@ -354,7 +464,9 @@ export function applyAction(game: Game, actorId: string, action: Action) {
       'Player not found.',
     );
     game.players = game.players.filter((p) => p.id !== target);
-    if (game.hostId === target) game.hostId = game.players[0]?.id ?? '';
+    if (game.hostId === target)
+      game.hostId = game.players.find((p) => !p.bot)?.id ?? '';
+    if (!game.players.some((p) => p.bot)) delete game.practice;
     return;
   }
   if (action.type === 'ready') {
@@ -560,6 +672,8 @@ export function applyAction(game: Game, actorId: string, action: Action) {
         game.investigated.push(target.id);
         addNote(game, actorId, {
           text: `Round ${game.round}: ${target.name} has ${target.role === 'liberal' ? 'Liberal' : 'Fascist'} party membership.`,
+          targetId: target.id,
+          party: target.role === 'liberal' ? 'liberal' : 'fascist',
         });
         log(
           game,
@@ -615,11 +729,15 @@ export function viewFor(game: Game, viewerId: string) {
     phase: game.phase,
     round: game.round,
     revision: game.revision,
+    practice: game.practice
+      ? { paused: game.practice.paused, pace: game.practice.pace }
+      : null,
     players: game.players.map((p) => ({
       id: p.id,
       name: p.name,
       alive: p.alive,
       ready: p.ready,
+      bot: !!p.bot,
       ...(game.phase === 'finished' ? { role: p.role } : {}),
     })),
     president: game.president,
