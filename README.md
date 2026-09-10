@@ -69,4 +69,4 @@ Production source contains no test backdoors or debug role endpoints. `wrangler.
 
 ## Attribution
 
-Original game and artwork: Secret Hitler by Mike Boxleiter, Tommy Maranges, and Mac Schubert, [secrethitler.com](https://www.secrethitler.com/). The original release also credits Max Temkin. Adapted official assets and this implementation are licensed under [CC BY-NC-SA 4.0](LICENSE.md). See [asset sources](docs/ASSETS.md). This project is unaffiliated with the original creators.
+Original game and artwork: Secret Hitler by Mike Boxleiter, Tommy Maranges, and Mac Schubert, © Goat, Wolf & Cabbage, [secrethitler.com](https://www.secrethitler.com/). The original release also credits Max Temkin. The full-color board, policy, role, and ballot PNGs are adapted artwork from [Secret Hitler Online by ShrimpCryptid](https://github.com/ShrimpCryptid/Secret-Hitler-Online), copied without cropping or recoloring. The adapted assets and this implementation are licensed under [CC BY-NC-SA 4.0](LICENSE.md). See [asset sources](docs/ASSETS.md) for the pinned source commit and file checksums. This project is unaffiliated with the original creators or ShrimpCryptid.

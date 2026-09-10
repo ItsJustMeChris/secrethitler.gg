@@ -1,22 +1,38 @@
-# Official Secret Hitler asset pack
+# Secret Hitler asset sources
 
 Source game and artwork: Secret Hitler, created by Mike Boxleiter, Tommy Maranges, and Mac Schubert.
 Official site: https://www.secrethitler.com/
 License declared in the official rules: Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International.
 License URL: https://creativecommons.org/licenses/by-nc-sa/4.0/
 
-## Source files
+## Full-color game assets
+
+Boards, policy tiles, role cards, and ballots come from the Git repository behind [secret-hitler.online](https://secret-hitler.online): [ShrimpCryptid/Secret-Hitler-Online](https://github.com/ShrimpCryptid/Secret-Hitler-Online). Original game and artwork © 2016–2020 Goat, Wolf & Cabbage; adapted artwork by ShrimpCryptid, under [CC BY-NC-SA 4.0](https://github.com/ShrimpCryptid/Secret-Hitler-Online/blob/6b210bae0ae3c3aeb67391dcfa328135a13fb345/LICENSE).
+
+- Pinned source commit: `6b210bae0ae3c3aeb67391dcfa328135a13fb345` on `development`.
+- Source directory: `frontend/src/assets/`.
+- Retrieved 2026-09-10.
+- Copied PNGs byte-for-byte; no gamma adjustment, recoloring, crop, or recompression.
+- Upstream adaptations include rounded corners, depth, and shadows. These are adapted assets, not untouched exports from the original board game.
+- `role-liberal-1.png` → `role-liberal.png`; `role-fascist-1.png` → `role-fascist.png`; `vote-yes.png` → `ballot-ja.png`; `vote-no.png` → `ballot-nein.png`. Other selected names are unchanged.
+- Desktop boards use the matching small `board-policy-*` tiles at 10% of board width and 30% from the top. Liberal placement starts at 18.2%, spaced 13.54%; fascist placement starts at 11%, spaced 13.6%, matching the upstream board positions.
+- Mobile tracks use those same tiles with contained, proportional sizing. Hands use the larger `policy-*` cards. All artwork retains its intrinsic aspect ratio and transparent borders.
+- The asset URL revision refreshes cached print-and-play exports on existing devices.
+
+The included `docs/asset-manifest.json` records each copied file's exact source path, commit, dimensions, and SHA-256 checksum.
+
+## Supporting official sources
 
 - Official print-and-play PDF: https://www.secrethitler.com/assets/Secret_Hitler_Print_and_Play.pdf
 - Official rulebook PDF: https://www.secrethitler.com/assets/Secret_Hitler_Rules.pdf
 - Additional website illustrations: inline SVGs in https://www.secrethitler.com/ with presentation values from https://www.secrethitler.com/stylesheets/secret.css
 - Retrieved 2026-09-09 America/Chicago.
 
-## Changes made
+## Supporting asset preparation
 
-Original artwork was extracted, cropped, rotated, assembled from the supplied printable halves, and exported as PNG and WebP. No artwork was generated or redrawn. The print-and-play source is monochrome. Board edges were cropped just inside the print cutting frame. The transparent logo has only its exterior white background removed; white lettering is preserved. The official website SVGs have their original CSS presentation declarations resolved to attributes so they display independently.
+The initial version used monochrome print-and-play crops for cards and boards. Those have been replaced by the full-color assets above, and the CSS color filters have been removed. No artwork was generated or redrawn. The retained transparent logo has only its exterior white background removed; white lettering is preserved. Power icons were extracted from the official rules. The official website SVGs have their original CSS presentation declarations resolved to attributes so they display independently.
 
-The included `docs/asset-manifest.json` records the exact crop coordinates and source operations. PDF page numbers in the manifest are one-based. All print-and-play crops use the original 3300 x 2550 embedded image with origin at top left. All rulebook crops are in PDF points with origin at top left. The website uses the PNG exports to preserve source resolution and receive the correct image MIME type from its hosting layer.
+The manifest retains extraction details for these supporting assets. PDF page numbers are one-based, and rulebook crops are in PDF points with origin at top left. The website uses PNGs to preserve source quality and receive the correct image MIME type from its hosting layer. Monochrome power icons are tinted only for contrast against the dark mobile track.
 
 ## Verified rules and powers
 
@@ -41,14 +57,15 @@ At 5-6 players Hitler knows the Fascist. At 7-10 players the Fascists know each 
 
 ## Ready-to-use assets
 
-- `board-liberal`: 3974 x 1255
-- `board-fascist-5-6`, `board-fascist-7-8`, `board-fascist-9-10`: 3974 x 1255
-- `role-liberal`, `role-fascist`, `role-hitler`: approximately 650 x 950
-- `policy-liberal`, `policy-fascist`: approximately 443 x 674
-- `ballot-ja`, `ballot-nein`: approximately 940 x 650, upright horizontal lettering
+- `board-liberal`: 1683 x 650
+- `board-fascist-5-6`, `board-fascist-7-8`, `board-fascist-9-10`: 1683 x 650
+- `board-policy-liberal`, `board-policy-fascist`: 174 x 240
+- `role-liberal`, `role-hitler`: 500 x 712; `role-fascist`: 500 x 713
+- `policy-liberal`, `policy-fascist`: 576 x 772
+- `ballot-ja`, `ballot-nein`: 730 x 539
 - `logo`, `logo-transparent`: 1308 x 912
 - `power-investigate`, `power-special-election`, `power-peek`, `power-execute`: transparent official rulebook icons
 - `official-box-art`: 2560 x 1323; official warm coral box illustration, also SVG
 - `official-fascist-illustration`: 640 x 936; additional official reptile character, also SVG
 
-Suggested attribution for the recreation: "Based on Secret Hitler by Mike Boxleiter, Tommy Maranges, and Mac Schubert. Official artwork adapted for this noncommercial online recreation. Licensed CC BY-NC-SA 4.0." Link Secret Hitler to the official site and CC BY-NC-SA 4.0 to the license URL above.
+Attribution appears in the app's Fair play & credits dialog, the README, and LICENSE.md, with source and license links. This noncommercial adaptation is not affiliated with or endorsed by Goat, Wolf & Cabbage or ShrimpCryptid.

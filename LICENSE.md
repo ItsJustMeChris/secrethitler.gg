@@ -6,7 +6,9 @@ The full, binding license is available at https://creativecommons.org/licenses/b
 
 Original game: **Secret Hitler**, created by Mike Boxleiter, Tommy Maranges, and Mac Schubert. https://www.secrethitler.com/ . Original artwork is credited to Mackenzie Schubert (Mac Schubert). The original release also credits Max Temkin.
 
-Changes: a new responsive web interface, online private rooms, server-controlled rules and private-information access, persistent reconnection, and table text chat. Official print-and-play artwork has been cropped, reassembled, color-filtered for the interface, and exported as PNG. No affiliation or endorsement by the original creators is implied.
+Original game and artwork © 2016–2020 **Goat, Wolf & Cabbage**. Board, policy, role, and ballot assets are adapted artwork from **Secret Hitler Online by ShrimpCryptid**, licensed under CC BY-NC-SA 4.0: https://github.com/ShrimpCryptid/Secret-Hitler-Online . Its adaptations include rounded corners, depth, and shadows. The selected PNGs are copied byte-for-byte from commit `6b210bae0ae3c3aeb67391dcfa328135a13fb345` and displayed without recoloring or cropping.
+
+Our changes: a new responsive web interface, online private rooms, server-controlled rules and private-information access, persistent reconnection, table text chat, and AI players. The logo and power icons were extracted from the official rules; supporting website illustrations were exported from the official SVGs. No affiliation or endorsement by the original creators or ShrimpCryptid is implied.
 
 You may share and adapt this work with attribution, a link to the license, and a description of changes. Commercial use is not permitted. Adaptations must use the same license. See the full legal text for all conditions. Third-party software packages and vendored components retain their respective licenses.
 

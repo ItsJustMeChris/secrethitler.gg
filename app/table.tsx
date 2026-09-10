@@ -69,7 +69,8 @@ const phaseNames: Record<string, string> = {
   executive: 'Executive action',
   finished: 'Game over',
 };
-const asset = (name: string) => `/assets/${name}.png`;
+// Refresh cached print-and-play exports when loading the full-color source pack.
+const asset = (name: string) => `/assets/${name}.png?v=6b210bae`;
 
 async function api(input?: Record<string, unknown>, code?: string) {
   const response = await fetch(
@@ -1334,11 +1335,20 @@ export default function GameTable() {
             <h3>Original game & artwork</h3>
             <p>
               Secret Hitler by Mike Boxleiter, Tommy Maranges, and Mac Schubert.
-              Official artwork was cropped, reassembled, recolored for the
-              interface, and adapted from the free print-and-play edition. The
-              web interface, networking, and rule enforcement are new. This
-              adaptation is unaffiliated with the original creators and is
-              released under{' '}
+              Original game and artwork © Goat, Wolf & Cabbage. Board, policy,
+              role, and ballot artwork comes from{' '}
+              <a
+                href="https://github.com/ShrimpCryptid/Secret-Hitler-Online"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Secret Hitler Online by ShrimpCryptid
+              </a>
+              , whose adapted PNGs are used with their original colors and
+              borders. The logo and supporting illustrations come from the
+              official game. The responsive interface, networking, and rule
+              enforcement are new. This adaptation is unaffiliated with the
+              original creators and is released under{' '}
               <a
                 href="https://creativecommons.org/licenses/by-nc-sa/4.0/"
                 target="_blank"
@@ -1367,8 +1377,8 @@ export default function GameTable() {
                 className={`role-image ${game.me.role}`}
                 src={asset(`role-${game.me.role}`)}
                 alt={`Your secret role is ${game.me.role}`}
-                width="650"
-                height="950"
+                width="500"
+                height={game.me.role === 'fascist' ? 713 : 712}
               />
               <div>
                 <h3>
@@ -1495,20 +1505,24 @@ function PolicyBoard({
               : `board-fascist-${players <= 6 ? '5-6' : players <= 8 ? '7-8' : '9-10'}`,
           )}
           alt=""
-          width="3974"
-          height="1255"
+          width="1683"
+          height="650"
         />
-        <div
-          className={`enacted-overlay ${liberal ? 'liberal-slots' : 'fascist-slots'}`}
-        >
+        <div className="enacted-overlay">
           {Array.from({ length: total }, (_, i) => (
-            <div key={i} className="policy-slot">
+            <div
+              key={i}
+              className="policy-slot"
+              style={{
+                left: `${(liberal ? 18.2 : 11) + i * (liberal ? 13.54 : 13.6)}%`,
+              }}
+            >
               {i < count && (
                 <img
-                  src={asset(`policy-${kind}`)}
+                  src={asset(`board-policy-${kind}`)}
                   alt={`${kind} policy ${i + 1}`}
-                  width="443"
-                  height="674"
+                  width="174"
+                  height="240"
                 />
               )}
             </div>
@@ -1528,10 +1542,10 @@ function PolicyBoard({
           >
             {i < count ? (
               <img
-                src={asset(`policy-${kind}`)}
+                src={asset(`board-policy-${kind}`)}
                 alt={`${kind} policy ${i + 1}`}
-                width="443"
-                height="674"
+                width="174"
+                height="240"
               />
             ) : (
               <>
@@ -1697,8 +1711,8 @@ function ActionPanel({
             <img
               src={asset('ballot-ja')}
               alt="Ja! Yes"
-              width="936"
-              height="651"
+              width="730"
+              height="539"
             />
             {game.me.ballot === true && (
               <span>
@@ -1715,8 +1729,8 @@ function ActionPanel({
             <img
               src={asset('ballot-nein')}
               alt="Nein! No"
-              width="944"
-              height="648"
+              width="730"
+              height="539"
             />
             {game.me.ballot === false && (
               <span>
@@ -1751,8 +1765,8 @@ function ActionPanel({
               <img
                 src={asset(`policy-${p}`)}
                 alt={`${p} policy ${i + 1}`}
-                width="443"
-                height="674"
+                width="576"
+                height="772"
               />
               <span>
                 {game.phase === 'president-discard' ? 'Discard' : 'Enact'}

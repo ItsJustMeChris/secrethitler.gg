@@ -1,209 +1,15 @@
 [
   {
-    "name": "role-liberal",
-    "width": 650,
-    "height": 952,
-    "source": "Secret_Hitler_Print_and_Play.pdf",
-    "page": 7,
-    "crop_px": [
-      196,
-      270,
-      846,
-      1222
-    ],
-    "rotation_degrees_ccw": 0
-  },
-  {
-    "name": "role-hitler",
-    "width": 652,
-    "height": 950,
-    "source": "Secret_Hitler_Print_and_Play.pdf",
-    "page": 8,
-    "crop_px": [
-      1700,
-      276,
-      2352,
-      1226
-    ],
-    "rotation_degrees_ccw": 0
-  },
-  {
-    "name": "role-fascist",
-    "width": 650,
-    "height": 950,
-    "source": "Secret_Hitler_Print_and_Play.pdf",
-    "page": 8,
-    "crop_px": [
-      2454,
-      278,
-      3104,
-      1228
-    ],
-    "rotation_degrees_ccw": 0
-  },
-  {
-    "name": "policy-fascist",
-    "width": 443,
-    "height": 674,
-    "source": "Secret_Hitler_Print_and_Play.pdf",
-    "page": 2,
-    "crop_px": [
-      449,
-      273,
-      1123,
-      716
-    ],
-    "rotation_degrees_ccw": -90
-  },
-  {
-    "name": "policy-liberal",
-    "width": 442,
-    "height": 674,
-    "source": "Secret_Hitler_Print_and_Play.pdf",
-    "page": 4,
-    "crop_px": [
-      1292,
-      614,
-      1734,
-      1288
-    ],
-    "rotation_degrees_ccw": 0
-  },
-  {
-    "name": "ballot-ja",
-    "width": 936,
-    "height": 651,
-    "source": "Secret_Hitler_Print_and_Play.pdf",
-    "page": 4,
-    "crop_px": [
-      199,
-      276,
-      850,
-      1212
-    ],
-    "rotation_degrees_ccw": -90
-  },
-  {
-    "name": "ballot-nein",
-    "width": 944,
-    "height": 648,
-    "source": "Secret_Hitler_Print_and_Play.pdf",
-    "page": 7,
-    "crop_px": [
-      2450,
-      280,
-      3098,
-      1224
-    ],
-    "rotation_degrees_ccw": -90
-  },
-  {
-    "name": "board-liberal",
-    "width": 3974,
-    "height": 1255,
-    "source": "Secret_Hitler_Print_and_Play.pdf",
-    "page": 10,
-    "source_image_px": [
-      3300,
-      2550
-    ],
-    "left_source_crop_px": [
-      273,
-      217,
-      1528,
-      2204
-    ],
-    "right_source_crop_px": [
-      1765,
-      217,
-      3020,
-      2204
-    ],
-    "assembly": "Second crop clockwise + first counterclockwise"
-  },
-  {
-    "name": "board-fascist-5-6",
-    "width": 3974,
-    "height": 1255,
-    "source": "Secret_Hitler_Print_and_Play.pdf",
-    "page": 11,
-    "source_image_px": [
-      3300,
-      2550
-    ],
-    "left_source_crop_px": [
-      273,
-      217,
-      1528,
-      2204
-    ],
-    "right_source_crop_px": [
-      1765,
-      217,
-      3020,
-      2204
-    ],
-    "assembly": "First crop clockwise + second counterclockwise"
-  },
-  {
-    "name": "board-fascist-7-8",
-    "width": 3974,
-    "height": 1255,
-    "source": "Secret_Hitler_Print_and_Play.pdf",
-    "page": 12,
-    "source_image_px": [
-      3300,
-      2550
-    ],
-    "left_source_crop_px": [
-      273,
-      217,
-      1528,
-      2204
-    ],
-    "right_source_crop_px": [
-      1765,
-      217,
-      3020,
-      2204
-    ],
-    "assembly": "First crop clockwise + second counterclockwise"
-  },
-  {
-    "name": "board-fascist-9-10",
-    "width": 3974,
-    "height": 1255,
-    "source": "Secret_Hitler_Print_and_Play.pdf",
-    "page": 13,
-    "source_image_px": [
-      3300,
-      2550
-    ],
-    "left_source_crop_px": [
-      273,
-      217,
-      1528,
-      2204
-    ],
-    "right_source_crop_px": [
-      1765,
-      217,
-      3020,
-      2204
-    ],
-    "assembly": "First crop clockwise + second counterclockwise"
-  },
-  {
     "name": "logo",
     "width": 1308,
     "height": 912,
     "source": "Secret_Hitler_Rules.pdf",
     "page": 1,
     "crop_pt": [
-      75.0,
-      227.0,
-      527.0,
-      542.0
+      75,
+      227,
+      527,
+      542
     ],
     "raster_scale": 3,
     "trim_px": [
@@ -291,5 +97,174 @@
     "width": 640,
     "height": 936,
     "modifications": "Original SVG CSS presentation declarations resolved to attributes; rasterization only."
+  },
+  {
+    "name": "board-liberal",
+    "width": 1683,
+    "height": 650,
+    "color_space": "srgb",
+    "source": "https://github.com/ShrimpCryptid/Secret-Hitler-Online",
+    "source_commit": "6b210bae0ae3c3aeb67391dcfa328135a13fb345",
+    "source_path": "frontend/src/assets/board-liberal.png",
+    "license": "CC-BY-NC-SA-4.0",
+    "attribution": "Goat, Wolf & Cabbage; adapted artwork by ShrimpCryptid",
+    "modifications": "Copied byte-for-byte; displayed at its original aspect ratio without color filters.",
+    "sha256": "989649a107aff5c0b30f86a96bf5570cbaf0515ee78a7950b0cce4176330f287"
+  },
+  {
+    "name": "board-fascist-5-6",
+    "width": 1683,
+    "height": 650,
+    "color_space": "srgb",
+    "source": "https://github.com/ShrimpCryptid/Secret-Hitler-Online",
+    "source_commit": "6b210bae0ae3c3aeb67391dcfa328135a13fb345",
+    "source_path": "frontend/src/assets/board-fascist-5-6.png",
+    "license": "CC-BY-NC-SA-4.0",
+    "attribution": "Goat, Wolf & Cabbage; adapted artwork by ShrimpCryptid",
+    "modifications": "Copied byte-for-byte; displayed at its original aspect ratio without color filters.",
+    "sha256": "5ea649149ac44a45b66ed6d4488fa99436dc7e465bb5fcc6d3836ffbaa0b4178"
+  },
+  {
+    "name": "board-fascist-7-8",
+    "width": 1683,
+    "height": 650,
+    "color_space": "srgb",
+    "source": "https://github.com/ShrimpCryptid/Secret-Hitler-Online",
+    "source_commit": "6b210bae0ae3c3aeb67391dcfa328135a13fb345",
+    "source_path": "frontend/src/assets/board-fascist-7-8.png",
+    "license": "CC-BY-NC-SA-4.0",
+    "attribution": "Goat, Wolf & Cabbage; adapted artwork by ShrimpCryptid",
+    "modifications": "Copied byte-for-byte; displayed at its original aspect ratio without color filters.",
+    "sha256": "9053522ebcde268fe8c9d41146aae2822937865a46310b2da703f9de3dcf6507"
+  },
+  {
+    "name": "board-fascist-9-10",
+    "width": 1683,
+    "height": 650,
+    "color_space": "srgb",
+    "source": "https://github.com/ShrimpCryptid/Secret-Hitler-Online",
+    "source_commit": "6b210bae0ae3c3aeb67391dcfa328135a13fb345",
+    "source_path": "frontend/src/assets/board-fascist-9-10.png",
+    "license": "CC-BY-NC-SA-4.0",
+    "attribution": "Goat, Wolf & Cabbage; adapted artwork by ShrimpCryptid",
+    "modifications": "Copied byte-for-byte; displayed at its original aspect ratio without color filters.",
+    "sha256": "ab9fa384f098fa5738e96eb11deb6275df95ca27a4410798350b8d2cf6a4e9bf"
+  },
+  {
+    "name": "board-policy-liberal",
+    "width": 174,
+    "height": 240,
+    "color_space": "srgb",
+    "source": "https://github.com/ShrimpCryptid/Secret-Hitler-Online",
+    "source_commit": "6b210bae0ae3c3aeb67391dcfa328135a13fb345",
+    "source_path": "frontend/src/assets/board-policy-liberal.png",
+    "license": "CC-BY-NC-SA-4.0",
+    "attribution": "Goat, Wolf & Cabbage; adapted artwork by ShrimpCryptid",
+    "modifications": "Copied byte-for-byte; displayed at its original aspect ratio without color filters.",
+    "sha256": "70c179aa90eb5f2d5edff3c7b1b50602a8d46fbbf2b14a711d337e35d4f62411"
+  },
+  {
+    "name": "board-policy-fascist",
+    "width": 174,
+    "height": 240,
+    "color_space": "srgb",
+    "source": "https://github.com/ShrimpCryptid/Secret-Hitler-Online",
+    "source_commit": "6b210bae0ae3c3aeb67391dcfa328135a13fb345",
+    "source_path": "frontend/src/assets/board-policy-fascist.png",
+    "license": "CC-BY-NC-SA-4.0",
+    "attribution": "Goat, Wolf & Cabbage; adapted artwork by ShrimpCryptid",
+    "modifications": "Copied byte-for-byte; displayed at its original aspect ratio without color filters.",
+    "sha256": "588c211e0f9155590d27966faa2843e76f9638458670961a0d8281b45656a6bb"
+  },
+  {
+    "name": "policy-liberal",
+    "width": 576,
+    "height": 772,
+    "color_space": "srgb",
+    "source": "https://github.com/ShrimpCryptid/Secret-Hitler-Online",
+    "source_commit": "6b210bae0ae3c3aeb67391dcfa328135a13fb345",
+    "source_path": "frontend/src/assets/policy-liberal.png",
+    "license": "CC-BY-NC-SA-4.0",
+    "attribution": "Goat, Wolf & Cabbage; adapted artwork by ShrimpCryptid",
+    "modifications": "Copied byte-for-byte; displayed at its original aspect ratio without color filters.",
+    "sha256": "5d5135b74f62df9a78d06b0856bce671fcdbdc167db00f0c51b87d715eabbbf4"
+  },
+  {
+    "name": "policy-fascist",
+    "width": 576,
+    "height": 772,
+    "color_space": "srgb",
+    "source": "https://github.com/ShrimpCryptid/Secret-Hitler-Online",
+    "source_commit": "6b210bae0ae3c3aeb67391dcfa328135a13fb345",
+    "source_path": "frontend/src/assets/policy-fascist.png",
+    "license": "CC-BY-NC-SA-4.0",
+    "attribution": "Goat, Wolf & Cabbage; adapted artwork by ShrimpCryptid",
+    "modifications": "Copied byte-for-byte; displayed at its original aspect ratio without color filters.",
+    "sha256": "66ae83feaf387631b80221c011230218217ed3ea0fc09e2b24393cf8c21522a7"
+  },
+  {
+    "name": "role-liberal",
+    "width": 500,
+    "height": 712,
+    "color_space": "srgb",
+    "source": "https://github.com/ShrimpCryptid/Secret-Hitler-Online",
+    "source_commit": "6b210bae0ae3c3aeb67391dcfa328135a13fb345",
+    "source_path": "frontend/src/assets/role-liberal-1.png",
+    "license": "CC-BY-NC-SA-4.0",
+    "attribution": "Goat, Wolf & Cabbage; adapted artwork by ShrimpCryptid",
+    "modifications": "Copied byte-for-byte; displayed at its original aspect ratio without color filters.",
+    "sha256": "2e16642e0fc94f5f470fa24111a5b80c74cded0e515ae1ce1e93737bbf38fbb7"
+  },
+  {
+    "name": "role-fascist",
+    "width": 500,
+    "height": 713,
+    "color_space": "srgb",
+    "source": "https://github.com/ShrimpCryptid/Secret-Hitler-Online",
+    "source_commit": "6b210bae0ae3c3aeb67391dcfa328135a13fb345",
+    "source_path": "frontend/src/assets/role-fascist-1.png",
+    "license": "CC-BY-NC-SA-4.0",
+    "attribution": "Goat, Wolf & Cabbage; adapted artwork by ShrimpCryptid",
+    "modifications": "Copied byte-for-byte; displayed at its original aspect ratio without color filters.",
+    "sha256": "5b3c6c241ea01cb3a8daab8af07f7eca9afcbfe9f79f610be0220693a76e6cbf"
+  },
+  {
+    "name": "role-hitler",
+    "width": 500,
+    "height": 712,
+    "color_space": "srgb",
+    "source": "https://github.com/ShrimpCryptid/Secret-Hitler-Online",
+    "source_commit": "6b210bae0ae3c3aeb67391dcfa328135a13fb345",
+    "source_path": "frontend/src/assets/role-hitler.png",
+    "license": "CC-BY-NC-SA-4.0",
+    "attribution": "Goat, Wolf & Cabbage; adapted artwork by ShrimpCryptid",
+    "modifications": "Copied byte-for-byte; displayed at its original aspect ratio without color filters.",
+    "sha256": "7f5038bc7d403c24a2f33cb8a59d312aa8e57016ed9302c5206e9b18d2a0ef91"
+  },
+  {
+    "name": "ballot-ja",
+    "width": 730,
+    "height": 539,
+    "color_space": "srgb",
+    "source": "https://github.com/ShrimpCryptid/Secret-Hitler-Online",
+    "source_commit": "6b210bae0ae3c3aeb67391dcfa328135a13fb345",
+    "source_path": "frontend/src/assets/vote-yes.png",
+    "license": "CC-BY-NC-SA-4.0",
+    "attribution": "Goat, Wolf & Cabbage; adapted artwork by ShrimpCryptid",
+    "modifications": "Copied byte-for-byte; displayed at its original aspect ratio without color filters.",
+    "sha256": "750f4c8d086b90792bc0d886e79b7617a314dae2c4816dbcbe78224c05b41ceb"
+  },
+  {
+    "name": "ballot-nein",
+    "width": 730,
+    "height": 539,
+    "color_space": "srgb",
+    "source": "https://github.com/ShrimpCryptid/Secret-Hitler-Online",
+    "source_commit": "6b210bae0ae3c3aeb67391dcfa328135a13fb345",
+    "source_path": "frontend/src/assets/vote-no.png",
+    "license": "CC-BY-NC-SA-4.0",
+    "attribution": "Goat, Wolf & Cabbage; adapted artwork by ShrimpCryptid",
+    "modifications": "Copied byte-for-byte; displayed at its original aspect ratio without color filters.",
+    "sha256": "3a4e3683a646d3a489e8fc38256b877b80335cf3487d4750271698d7bcee089e"
   }
 ]
