@@ -8,6 +8,14 @@ The application rejects cross-origin mutations, oversized/invalid JSON and inval
 
 The standard third-party framework runtime is included in dependency audits. The generated component catalog is excluded from project lint rather than edited; the used primitives retain their upstream implementations. Artwork uses static PNG files so the hosting layer serves the correct image MIME type; Next image-transform lint is intentionally disabled. The deprecated esbuild dependency of the schema generation tool and local image-processing library are patched via explicit dependency overrides.
 
+## Computer players
+
+The AI decision function accepts only `GameView` from `viewFor` and its own persisted memory. It never receives the full room, other seats' private notes or ballots, or the hidden deck. Memory contains only its own observed hands, public history, and its own power results. A server scheduler selects eligible AI seats and applies their chosen intentions through the same `applyAction` validation as humans. Public messages include clearly attributed claims and may contain bluffs; they are subject to the same silence rules as human messages. Every authored dialogue line is available to every role rather than providing a phrase-to-role lookup.
+
+The authenticated `tick` operation verifies human room membership. Clients cannot select the AI actor, action, seed, or memory. A due deadline, AI memory, dialogue, and move are committed in the same revision-conditional write. Concurrent ticks retry and respect the newly saved deadline. Manual ticks require the host, a paused AI table, and an exact expected revision, so duplicated steps do not advance twice. Separate wake-request rate limits protect pacing calls without consuming the player's move allowance. GET requests remain read-only with respect to game state. Lobby bot additions require the host, remain capped at 10 seats, reset human readiness, and cannot occur after roles are dealt. The existing optional room-JSON fields allow older human-only rooms to continue without a schema migration.
+
+Bot code and the dialogue library are server-only. The learning coach receives the ordinary human projection. Optional voice playback reads already-public AI chat through browser speech synthesis and is off by default. No third-party language model receives room state or chat.
+
 ## Limits
 
 This protects against modified clients, secret-state inspection by other players, unauthorized moves, duplicate/replayed actions, and lost updates under contention. It does not establish a unique human identity. One browser profile can occupy one seat in each room, but alternate browsers/devices are possible. The host cannot inspect other players' secrets, but a trusted server operator with database access can. No cryptographic fairness proof to distrust the operator is claimed.
@@ -16,4 +24,4 @@ Out-of-band coordination, screenshots, voice signals, deliberate disconnection, 
 
 ## Verification
 
-`npm test` covers original rules, legal actions, view secrecy and 600 randomized full games with conservation of all 17 policy cards. `npm run test:api` runs against a real local Worker/D1 database and checks ten isolated cookies, concurrency, forged sessions, origin rejection, replay/stale moves, secret hand visibility, complete play, reconnection, and rematch. Neither suite adds a production endpoint or changes game rules.
+`npm test` covers original rules, legal actions, view secrecy, 600 randomized rule-engine games, and 600 complete AI games across all table sizes with conservation of all 17 policy cards. AI tests check hidden-state invariance, owner-only observations, dialogue variety, host controls, and speech restrictions. `npm run test:api` checks ten isolated human cookies and all existing multiplayer security boundaries. `npm run test:bots-api` completes a real mixed human/AI game, checks ten-seat limits, outside-room access rejection, concurrent manual steps, pause, reconnect, rematch, and a nine-bot solo table. Neither suite adds a production backdoor or changes game rules.

@@ -2268,3 +2268,207 @@ input {
     font-size: 0.875rem;
   }
 }
+
+/* AI opponents extend the same paper-and-felt table on every screen size. */
+.learning-tools {
+  border-bottom: 1px solid #536155;
+  padding: 1rem 1.25rem;
+  background: #162c24;
+}
+.learning-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.8rem 1.2rem;
+  color: #f4efdf;
+}
+.coach-toggle,
+.ai-table-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.875rem;
+  min-height: 2.75rem;
+}
+.coach-toggle {
+  cursor: pointer;
+}
+.coach-toggle [data-slot='switch'] {
+  background: #8f9f92;
+}
+.coach-toggle [data-slot='switch'][data-checked] {
+  background: #e2b873;
+}
+.coach-toggle [data-slot='switch-thumb'] {
+  background: #142720;
+}
+.ai-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.ai-controls button {
+  min-height: 2.75rem;
+  font-size: 0.875rem;
+  background: transparent;
+  border-color: #859586;
+  color: #f4efdf;
+}
+.ai-controls button:hover {
+  background: #314b3c;
+}
+.ai-pace {
+  min-width: 8rem;
+}
+.ai-paused-note {
+  margin: 0.75rem 0 0;
+  color: #e7c58e;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.coach-card {
+  display: flex;
+  gap: 0.8rem;
+  margin-top: 0.9rem;
+  padding: 1rem;
+  border-left: 3px solid #e2b873;
+  background: #f2ecd8;
+  color: #26392e;
+  border-radius: 3px;
+}
+.coach-icon {
+  flex-shrink: 0;
+  padding-top: 0.15rem;
+}
+.coach-card h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 0.3rem;
+}
+.coach-card p {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+.coach-footnote {
+  display: block;
+  margin-top: 0.6rem;
+  font-size: 0.875rem;
+  color: #586454;
+}
+.table-talk-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding-top: 0.85rem;
+  color: #efeddd;
+}
+.table-talk-preview > svg {
+  flex: 0 0 auto;
+  margin-top: 0.2rem;
+}
+.table-talk-preview p {
+  font-size: 1rem;
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: anywhere;
+  flex: 1;
+  min-width: 0;
+}
+.table-talk-preview .text-button {
+  display: none;
+}
+.solo-options {
+  margin-top: 1rem;
+}
+.solo-options .solo-size {
+  width: 100%;
+  min-height: 3rem;
+  font-size: 1rem;
+  color: #26392e;
+  border: 1px solid #9b9c87;
+  background: #fffaf0;
+}
+.solo-options > p {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0.75rem 0 0;
+}
+.add-bot-button {
+  width: 100%;
+  min-height: 3rem;
+  margin-top: 0.75rem;
+  background: transparent;
+  border-color: #65785f;
+  color: #294731;
+  font-size: 1rem;
+}
+.add-bot-button:hover {
+  background: #e0e4d1;
+}
+.bot-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  color: #375840;
+  border: 1px solid #8c9c80;
+  border-radius: 3px;
+  padding: 0.05rem 0.3rem;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .learning-tools {
+    padding: 0.8rem;
+  }
+  .learning-toolbar {
+    gap: 0.4rem 0.9rem;
+  }
+  .ai-controls {
+    width: 100%;
+  }
+  .ai-controls button {
+    flex-grow: 1;
+  }
+  .coach-card {
+    padding: 0.8rem;
+    gap: 0.55rem;
+  }
+  .coach-card p {
+    font-size: 1rem;
+  }
+  .table-talk-preview .text-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    min-height: 2.75rem;
+    color: #efcf94;
+    font-size: 0.875rem;
+  }
+  .table-talk-preview > svg {
+    display: none;
+  }
+  .table-talk-preview p {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .entry-tabs [data-slot='tabs-trigger'] {
+    font-size: 0.875rem;
+    padding-inline: 0.45rem;
+  }
+}
+.fill-bots-button {
+  width: 100%;
+  min-height: 2.75rem;
+  margin-top: 0.2rem;
+  white-space: normal;
+  color: #375840;
+  font-size: 0.875rem;
+}

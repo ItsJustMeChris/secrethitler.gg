@@ -12,10 +12,11 @@
     "lint": "oxlint",
     "format": "oxfmt",
     "db:generate": "drizzle-kit generate",
-    "test": "node --experimental-strip-types --test tests/game.test.ts",
+    "test": "node --experimental-strip-types --test tests/game.test.ts tests/bots.test.ts",
     "typecheck": "tsc --noEmit",
     "db:local": "wrangler d1 migrations apply DB --local --config wrangler.local.jsonc",
-    "test:api": "node tests/api.test.mjs"
+    "test:api": "node tests/api.test.mjs",
+    "test:bots-api": "node tests/bots-api.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",
