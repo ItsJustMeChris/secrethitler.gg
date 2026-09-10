@@ -1,6 +1,7 @@
 // Pure server-authoritative rules engine. Never send Game directly to a client.
 import { fairnessView, receiptShuffle } from './fairness.ts';
 import type { Fairness, FairnessView, ShuffleEvent } from './fairness.ts';
+import { isPortrait, PORTRAITS } from './portraits.ts';
 export type Policy = 'liberal' | 'fascist';
 export type Role = Policy | 'hitler';
 export type Power = 'investigate' | 'special-election' | 'peek' | 'execute';
@@ -21,6 +22,7 @@ export type Player = {
   role?: Role;
   bot?: boolean;
   departed?: boolean;
+  portrait?: number;
 };
 export type BotMemory = {
   trust: Record<string, number>;
@@ -100,6 +102,7 @@ export type Game = {
   processed: string[];
 };
 export type Action =
+  | { type: 'portrait'; portrait: number }
   | { type: 'add-bot' }
   | { type: 'fill-bots' }
   | { type: 'practice-settings'; paused?: boolean; pace?: 'normal' | 'fast' }
@@ -165,12 +168,18 @@ export function powerTrack(count: number): (Power | null)[] {
     null,
   ];
 }
-export function newGame(code: string, hostId: string, name: string): Game {
+export function newGame(
+  code: string,
+  hostId: string,
+  name: string,
+  portrait = 1,
+): Game {
+  validPortrait(portrait);
   return {
     fairness: undefined,
     code,
     hostId,
-    players: [{ id: hostId, name, alive: true, ready: false }],
+    players: [{ id: hostId, name, portrait, alive: true, ready: false }],
     phase: 'lobby',
     round: 0,
     revision: 0,
@@ -211,9 +220,22 @@ export function validName(name: unknown): string {
   );
   return clean;
 }
-export function joinGame(game: Game, id: string, name: string) {
+export function validPortrait(value: unknown): number {
+  if (value === undefined) return 1;
+  requireRule(isPortrait(value), 'Choose one of the available pictures.');
+  return value;
+}
+export function joinGame(
+  game: Game,
+  id: string,
+  name: string,
+  portrait?: number,
+) {
+  const selected = validPortrait(portrait);
   const seated = game.players.find((p) => p.id === id);
   if (seated) {
+    if (game.phase === 'lobby' && portrait !== undefined)
+      seated.portrait = selected;
     seated.departed = false;
     if (!game.hostId) game.hostId = id;
     return;
@@ -230,7 +252,13 @@ export function joinGame(game: Game, id: string, name: string) {
     ),
     'That name is already seated. Choose another.',
   );
-  game.players.push({ id, name: clean, ready: false, alive: true });
+  game.players.push({
+    id,
+    name: clean,
+    portrait: selected,
+    ready: false,
+    alive: true,
+  });
   if (!game.hostId) game.hostId = id;
 }
 const BOT_NAMES = [
@@ -262,6 +290,10 @@ export function addBot(game: Game) {
     alive: true,
     ready: true,
     bot: true,
+    portrait:
+      PORTRAITS.find(
+        (item) => !game.players.some((p) => p.portrait === item.id),
+      )?.id ?? 1,
   });
   for (const player of game.players) if (!player.bot) player.ready = false;
   game.practice ??= {
@@ -383,6 +415,14 @@ export function applyAction(game: Game, actorId: string, action: Action) {
     !actor.departed || action.type === 'leave',
     'Rejoin your reserved seat before playing.',
   );
+  if (action.type === 'portrait') {
+    requireRule(
+      game.phase === 'lobby',
+      'Pictures can be changed in the waiting lobby.',
+    );
+    actor.portrait = validPortrait(action.portrait);
+    return;
+  }
   if (action.type === 'add-bot' || action.type === 'fill-bots') {
     requireRule(actorId === game.hostId, 'Only the host can add AI players.');
     addBot(game);
@@ -450,6 +490,7 @@ export function applyAction(game: Game, actorId: string, action: Action) {
       .map((p) => ({
         id: p.id,
         name: p.name,
+        portrait: p.portrait,
         alive: true,
         ready: !!p.bot,
         ...(p.bot ? { bot: true } : {}),
@@ -783,13 +824,14 @@ export function viewFor(game: Game, viewerId: string) {
     practice: game.practice
       ? { paused: game.practice.paused, pace: game.practice.pace }
       : null,
-    players: game.players.map((p) => ({
+    players: game.players.map((p, index) => ({
       id: p.id,
       name: p.name,
       alive: p.alive,
       ready: p.ready,
       bot: !!p.bot,
       departed: !!p.departed,
+      portrait: p.portrait ?? (index % PORTRAITS.length) + 1,
       ...(game.phase === 'finished' ? { role: p.role } : {}),
     })),
     president: game.president,
