@@ -6,7 +6,7 @@ Every action validates membership, phase, actor eligibility, and action paramete
 
 The application rejects cross-origin mutations, oversized/invalid JSON and invalid display/chat text, and applies D1-backed request and chat rate limits. Cookies use 256 bits of entropy, HttpOnly, SameSite=Strict and Secure on HTTPS. The database stores their SHA-256 hashes, not raw bearer credentials. Responses with player information use `Cache-Control: no-store, private`. Client storage contains only the display name and room code. The application does not log game state or session tokens.
 
-The standard third-party framework runtime is included in dependency audits. The generated component catalog is excluded from project lint rather than edited; the used primitives retain their upstream implementations. Images are already optimized WebP, so Next image-transform lint is intentionally disabled. The deprecated esbuild dependency of the schema generation tool and local image-processing library are patched via explicit dependency overrides.
+The standard third-party framework runtime is included in dependency audits. The generated component catalog is excluded from project lint rather than edited; the used primitives retain their upstream implementations. Artwork uses static PNG files so the hosting layer serves the correct image MIME type; Next image-transform lint is intentionally disabled. The deprecated esbuild dependency of the schema generation tool and local image-processing library are patched via explicit dependency overrides.
 
 ## Limits
 
