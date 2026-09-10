@@ -271,63 +271,31 @@ h1 {
 }
 .original-board {
   position: relative;
-  border-radius: 2px;
-  overflow: hidden;
-  box-shadow:
-    1px 4px 0 #090f0ca8,
-    0 10px 25px #050b0940;
   line-height: 0;
-  background: #eedeb7;
 }
 .board-art {
+  display: block;
   width: 100%;
   height: auto;
-  opacity: 0.96;
-}
-.liberal .board-art {
-  filter: sepia(0.5) saturate(0.8) hue-rotate(127deg);
-}
-.fascist .board-art {
-  filter: sepia(0.6) saturate(2.5) hue-rotate(327deg);
+  object-fit: contain;
 }
 .enacted-overlay {
   position: absolute;
-  display: grid;
-  top: 20%;
-  height: 60%;
+  inset: 0;
   pointer-events: none;
 }
-.liberal-slots {
-  left: 13%;
-  right: 13.1%;
-  grid-template-columns: repeat(5, 1fr);
-}
-.fascist-slots {
-  left: 6.5%;
-  right: 5.1%;
-  grid-template-columns: repeat(6, 1fr);
-}
 .policy-slot {
-  display: flex;
-  justify-content: center;
-  padding: 2%;
+  /* Match the tile size and placement in the 1683 × 650 source boards. */
+  position: absolute;
+  top: 30%;
+  width: 10%;
 }
 .policy-slot img {
-  height: 100%;
-  width: auto;
-  box-shadow: 2px 2px 6px #0007;
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
   animation: policy-arrive 0.35s ease-out;
-}
-.liberal .policy-slot img,
-.policy-choice.liberal img,
-.role-image.liberal {
-  filter: sepia(0.3) saturate(2) hue-rotate(133deg);
-}
-.fascist .policy-slot img,
-.policy-choice.fascist img,
-.role-image.fascist,
-.role-image.hitler {
-  filter: sepia(0.6) saturate(3) hue-rotate(324deg);
 }
 .board-divider {
   display: flex;
@@ -662,7 +630,6 @@ input::placeholder {
 .official-art img {
   width: 100%;
   height: auto;
-  filter: saturate(0.7);
   border-radius: 3px;
   box-shadow: 0 10px 18px #04090545;
 }
@@ -983,17 +950,20 @@ input::placeholder {
   width: 132px;
   position: relative;
   padding: 0;
-  background: #eee9d8;
+  background: transparent;
   border: 0;
   border-radius: 4px;
-  box-shadow: 1px 4px 0 #050e0980;
   transition: transform 0.2s;
 }
 .ballot img {
+  display: block;
   width: 100%;
   height: auto;
-  border-radius: 3px;
-  filter: sepia(0.2);
+  object-fit: contain;
+}
+.ballot:disabled,
+.policy-choice:disabled {
+  opacity: 1;
 }
 .ballot:not(:disabled):hover {
   transform: translateY(-6px) rotate(-2deg);
@@ -1031,21 +1001,22 @@ input::placeholder {
   max-width: 105px;
   min-width: 0;
   padding: 0;
-  background: #e6dfc5;
+  background: transparent;
   border: 0;
   border-radius: 3px;
-  box-shadow: 0 4px 0 #050e0980;
   transition: transform 0.2s;
 }
 .policy-choice img {
   display: block;
   width: 100%;
   height: auto;
-  border-radius: 3px 3px 0 0;
+  object-fit: contain;
 }
 .policy-choice > span {
   display: block;
   color: #354332;
+  background: #e6dfc5;
+  border-radius: 0 0 3px 3px;
   font-size: 12px;
   padding: 8px;
 }
@@ -1339,10 +1310,10 @@ input::placeholder {
   margin-top: 12px;
 }
 .role-image {
+  display: block;
   width: 180px;
   height: auto;
-  border-radius: 4px;
-  box-shadow: 2px 4px 7px #0002;
+  object-fit: contain;
   flex-shrink: 0;
 }
 .dossier-content h3 {
@@ -1707,7 +1678,8 @@ input::placeholder {
     background: #c39580;
   }
   .mobile-policy-slot.enacted > img {
-    height: calc(100% - 20px);
+    display: block;
+    height: auto;
     width: 100%;
     object-fit: contain;
     max-height: 94px;
