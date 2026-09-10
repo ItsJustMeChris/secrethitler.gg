@@ -41,6 +41,12 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import {
+  Popover,
+  PopoverContent,
+  PopoverTitle,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -50,6 +56,9 @@ import {
 import { coachTip } from '@/lib/coach';
 import type { Action, GameView, Policy, Power } from '@/lib/game';
 import { FairPlayProof, rememberFairness } from './fair-play';
+import { PortraitPicker } from './portrait-picker';
+import { isPortrait, portraitUrl } from '@/lib/portraits';
+import { playerKnowledge } from '@/lib/player-knowledge';
 
 type View = Omit<GameView, 'players'> & {
   players: (GameView['players'][number] & { connected: boolean })[];
@@ -104,6 +113,7 @@ async function api(input?: Record<string, unknown>, code?: string) {
 export default function GameTable() {
   const [game, setGame] = useState<View | null>(null);
   const [name, setName] = useState('');
+  const [portrait, setPortrait] = useState(1);
   const [code, setCode] = useState('');
   const [entry, setEntry] = useState<'create' | 'join' | 'solo'>('create');
   const [seats, setSeats] = useState('5');
@@ -119,9 +129,13 @@ export default function GameTable() {
   const [privacy, setPrivacy] = useState(false);
   const [roleOpen, setRoleOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [mobilePanel, setMobilePanel] = useState('table');
-  const [alliesHidden, setAlliesHidden] = useState(false);
-  const [boardsExpanded, setBoardsExpanded] = useState(false);
+  const [seatOpen, setSeatOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const chatOpenRef = useRef(false);
+  const [chatDraft, setChatDraft] = useState('');
+  const [lastReadMessage, setLastReadMessage] = useState('');
+  const roomHeadingRef = useRef<HTMLDivElement>(null);
+  const rosterRef = useRef<HTMLElement>(null);
   const [choice, setChoice] = useState<{
     action: Action;
     title: string;
@@ -131,6 +145,11 @@ export default function GameTable() {
   } | null>(null);
   const gameRef = useRef<View | null>(null);
   const pending = useRef(false);
+  const changeChatOpen = (open: boolean) => {
+    chatOpenRef.current = open;
+    setChatOpen(open);
+    if (open) setLastReadMessage(gameRef.current?.messages.at(-1)?.id ?? '');
+  };
   const accept = useCallback((next: View) => {
     const current = gameRef.current;
     if (current?.code === next.code && current.revision > next.revision) return;
@@ -140,11 +159,17 @@ export default function GameTable() {
       current?.code !== next.code ||
       (current.phase !== 'lobby' && next.phase === 'lobby')
     ) {
-      setMobilePanel('table');
+      setSeatOpen(false);
       setRoleOpen(false);
-      setAlliesHidden(false);
       setChoice(null);
     }
+    if (current?.code !== next.code) {
+      chatOpenRef.current = false;
+      setChatOpen(false);
+      setChatDraft('');
+      setLastReadMessage(next.messages.at(-1)?.id ?? '');
+    }
+    if (chatOpenRef.current) setLastReadMessage(next.messages.at(-1)?.id ?? '');
     gameRef.current = next;
     setGame(next);
     setOnline(true);
@@ -164,7 +189,9 @@ export default function GameTable() {
     setRoleOpen(false);
     setReadAloud(false);
     setChoice(null);
-    setMobilePanel('table');
+    setSeatOpen(false);
+    changeChatOpen(false);
+    setChatDraft('');
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   };
 
@@ -172,6 +199,8 @@ export default function GameTable() {
     // Browser storage is read after hydration; it is unavailable during server rendering.
     // oxlint-disable-next-line react/react-compiler
     setName(localStorage.getItem('sh-name') ?? '');
+    const savedPortrait = Number(localStorage.getItem('sh-portrait'));
+    if (isPortrait(savedPortrait)) setPortrait(savedPortrait);
     setCoaching(localStorage.getItem('sh-coach') === 'true');
     setVoiceAvailable('speechSynthesis' in window);
     const invite = new URLSearchParams(location.search)
@@ -208,6 +237,19 @@ export default function GameTable() {
     };
   }, [accept]);
 
+  useEffect(() => {
+    const heading = roomHeadingRef.current;
+    if (!heading || !game?.code) return;
+    const update = () =>
+      heading.parentElement?.style.setProperty(
+        '--room-header-height',
+        `${heading.offsetHeight}px`,
+      );
+    const observer = new ResizeObserver(update);
+    observer.observe(heading);
+    update();
+    return () => observer.disconnect();
+  }, [game?.code]);
   useEffect(() => {
     if (!game?.code) return;
     const room = game.code;
@@ -315,14 +357,20 @@ export default function GameTable() {
       const next = await api({
         operation,
         name,
+        portrait,
         ...(operation === 'solo' ? { seats: Number(seats) } : {}),
         code: code.replace(/[\s-]/g, '').toUpperCase(),
       });
       accept(next);
       localStorage.setItem('sh-name', name.trim());
+      const actualPortrait = next.players.find(
+        (p) => p.id === next.me.id,
+      )!.portrait;
+      setPortrait(actualPortrait);
+      localStorage.setItem('sh-portrait', String(actualPortrait));
       localStorage.setItem('sh-room', next.code);
       history.replaceState(null, '', `?room=${next.code}`);
-      setMobilePanel('table');
+      setSeatOpen(false);
       if (operation === 'solo') {
         setCoaching(true);
         localStorage.setItem('sh-coach', 'true');
@@ -367,7 +415,11 @@ export default function GameTable() {
         accept(next);
         if (next.me.notes.length > current.me.notes.length) setRoleOpen(true);
         if (['nominate', 'power', 'rematch', 'start'].includes(action.type))
-          setMobilePanel('table');
+          setSeatOpen(false);
+        if (action.type === 'portrait') {
+          setPortrait(action.portrait);
+          localStorage.setItem('sh-portrait', String(action.portrait));
+        }
       }
       setChoice(null);
       return true;
@@ -419,6 +471,19 @@ export default function GameTable() {
   }
   const me = game?.players.find((p) => p.id === game.me.id);
   const inGame = game && game.phase !== 'lobby';
+  const unreadChat =
+    !chatOpen && game
+      ? game.messages
+          .slice(game.messages.findIndex((m) => m.id === lastReadMessage) + 1)
+          .filter((m) => m.playerId !== game.me.id).length
+      : 0;
+  const focusPlayers = () => {
+    rosterRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    const target = rosterRef.current?.querySelector<HTMLButtonElement>(
+      '[data-player-action]',
+    );
+    (target ?? rosterRef.current)?.focus({ preventScroll: true });
+  };
   const leave = () => {
     if (!game) return;
     choose({
@@ -474,9 +539,9 @@ export default function GameTable() {
       </header>
 
       <main
-        className={`workspace ${game ? `has-room ${game.phase}` : 'start-screen'} mobile-${mobilePanel} ${boardsExpanded ? 'boards-expanded' : ''}`}
+        className={`workspace ${game ? `has-room ${game.phase}` : 'start-screen'} ${seatOpen ? 'seat-open' : ''}`}
       >
-        <div className="workspace-heading">
+        <div className="workspace-heading" ref={roomHeadingRef}>
           <div>
             <p className="eyebrow">
               {game
@@ -498,9 +563,10 @@ export default function GameTable() {
               <Button
                 variant="outline"
                 className="invite-button"
-                onClick={() => setMobilePanel('seat')}
+                onClick={() => setSeatOpen(!seatOpen)}
+                aria-pressed={seatOpen}
               >
-                <Users /> Your seat
+                <Users /> {seatOpen ? 'Back to table' : 'Your seat'}
               </Button>
               <Button
                 className="invite-button"
@@ -532,54 +598,6 @@ export default function GameTable() {
               <br />
               <span>LIBERTY HANGS IN THE BALANCE</span>
             </span>
-          )}
-          {game && (
-            <>
-              {inGame && game.me.teammates.length > 0 && (
-                <div
-                  className="known-allies"
-                  aria-label="Your private team knowledge"
-                >
-                  <span>
-                    <LockKeyhole size={14} /> Your allies
-                  </span>
-                  {!alliesHidden &&
-                    game.me.teammates.map((p) => (
-                      <span key={p.id}>
-                        <b>{p.name}</b> ·{' '}
-                        {p.role === 'hitler' ? 'Hitler' : 'Fascist'}
-                        {!game.players.find((seat) => seat.id === p.id)?.alive
-                          ? ' · executed'
-                          : ''}
-                      </span>
-                    ))}
-                  <button
-                    className="text-button"
-                    onClick={() => setAlliesHidden(!alliesHidden)}
-                  >
-                    {alliesHidden ? <Eye size={16} /> : <EyeOff size={16} />}
-                    {alliesHidden ? 'Show' : 'Hide'}
-                  </button>
-                </div>
-              )}
-              <nav className="section-nav" aria-label="Table sections">
-                {[
-                  { id: 'table', icon: <Flag />, text: 'Table' },
-                  { id: 'players', icon: <Users />, text: 'Players' },
-                  { id: 'chat', icon: <MessageCircle />, text: 'Chat' },
-                  { id: 'seat', icon: <LockKeyhole />, text: 'Your seat' },
-                ].map((item) => (
-                  <button
-                    key={item.id}
-                    aria-current={mobilePanel === item.id ? 'page' : undefined}
-                    onClick={() => setMobilePanel(item.id)}
-                  >
-                    {item.icon}
-                    {item.text}
-                  </button>
-                ))}
-              </nav>
-            </>
           )}
         </div>
         {error && (
@@ -718,7 +736,7 @@ export default function GameTable() {
                   </p>
                   <button
                     className="text-button"
-                    onClick={() => setMobilePanel('chat')}
+                    onClick={() => changeChatOpen(true)}
                   >
                     Chat <ArrowRight size={14} />
                   </button>
@@ -733,18 +751,8 @@ export default function GameTable() {
                 busy={busy || !online}
                 act={act}
                 choose={choose}
-                onPlayers={() => setMobilePanel('players')}
+                onPlayers={focusPlayers}
               />
-            </div>
-          )}
-          {game && (
-            <div className="board-view-tools">
-              <button
-                className="text-button"
-                onClick={() => setBoardsExpanded(!boardsExpanded)}
-              >
-                {boardsExpanded ? 'Compact boards' : 'Larger boards'}
-              </button>
             </div>
           )}
           <div className="board-surface">
@@ -835,9 +843,7 @@ export default function GameTable() {
 
         <aside
           className="side-panel"
-          aria-label={
-            game ? 'Your seat and table conversation' : 'Create or join a table'
-          }
+          aria-label={game ? 'Your seat' : 'Create or join a table'}
         >
           {!game ? (
             <div className="entry-card paper">
@@ -938,6 +944,11 @@ export default function GameTable() {
                       </p>
                     </div>
                   )}
+                  <PortraitPicker
+                    value={portrait}
+                    onChange={setPortrait}
+                    disabled={busy || restoring}
+                  />
                   <Button
                     className="primary-button"
                     type="submit"
@@ -999,14 +1010,32 @@ export default function GameTable() {
                     <LockKeyhole size={18} />
                   )}
                 </div>
-                <h2>{me?.name}</h2>
+                <div className="seat-identity">
+                  <img
+                    src={portraitUrl(me?.portrait ?? portrait)}
+                    width="64"
+                    height="64"
+                    alt="Your chosen portrait"
+                  />
+                  <h2>{me?.name}</h2>
+                </div>
                 {game.phase === 'lobby' ? (
                   <>
                     <p>
                       {game.players.length < 5
                         ? `${5 - game.players.length} more ${game.players.length === 4 ? 'player' : 'players'} needed to begin.`
-                        : `${game.players.filter((p) => p.ready).length} of ${game.players.length} players ready. Open Players to see the table.`}
+                        : `${game.players.filter((p) => p.ready).length} of ${game.players.length} players ready.`}
                     </p>
+                    <details className="change-portrait">
+                      <summary>Change your picture</summary>
+                      <PortraitPicker
+                        value={me?.portrait ?? portrait}
+                        onChange={(value) =>
+                          void act({ type: 'portrait', portrait: value })
+                        }
+                        disabled={busy}
+                      />
+                    </details>
                     <Button
                       className={`primary-button ${me?.ready ? 'ready-button' : ''}`}
                       disabled={busy}
@@ -1111,7 +1140,6 @@ export default function GameTable() {
                   </Button>
                 </div>
               </div>
-              <Conversation game={game} act={act} busy={busy} />
             </>
           )}
           {!game && (
@@ -1128,7 +1156,12 @@ export default function GameTable() {
         </aside>
 
         {game && (
-          <section className="players-panel paper" aria-label="Players">
+          <section
+            className="players-panel paper"
+            aria-label="Players"
+            ref={rosterRef}
+            tabIndex={-1}
+          >
             <div className="players-heading">
               <h2>
                 The assembly <span>{game.players.length}/10</span>
@@ -1141,6 +1174,7 @@ export default function GameTable() {
             </div>
             <div className="players-grid">
               {game.players.map((p, i) => {
+                const knowledge = playerKnowledge(game, p.id);
                 const eligible =
                   game.phase === 'nomination' &&
                   game.president === game.me.id &&
@@ -1158,10 +1192,20 @@ export default function GameTable() {
                 return (
                   <div
                     key={p.id}
-                    className={`player ${!p.alive ? 'eliminated' : ''} ${p.id === game.president ? 'president-player' : ''}`}
+                    className={`player ${!p.alive ? 'eliminated' : ''} ${p.id === game.president ? 'president-player' : ''} ${eligible || targetPower ? 'actionable' : ''}`}
+                    title={`${p.name}${knowledge ? ` · ${knowledge.label}` : ''}`}
                   >
                     <div className="player-number">
-                      {String(i + 1).padStart(2, '0')}
+                      <img
+                        className="player-portrait"
+                        src={portraitUrl(p.portrait)}
+                        width="48"
+                        height="48"
+                        alt=""
+                      />
+                      <span className="seat-number">
+                        {String(i + 1).padStart(2, '0')}
+                      </span>
                       <span
                         className={`status-dot ${p.connected ? '' : 'offline'}`}
                         title={
@@ -1183,6 +1227,14 @@ export default function GameTable() {
                           </span>
                         )}
                       </b>
+                      {knowledge && (
+                        <strong
+                          className={`known-role ${knowledge.kind}`}
+                          aria-label={`${knowledge.source === 'party' ? 'Private investigation' : 'Role you know'}: ${knowledge.label}`}
+                        >
+                          {knowledge.label}
+                        </strong>
+                      )}
                       <span>
                         {game.phase === 'finished'
                           ? p.role
@@ -1214,6 +1266,8 @@ export default function GameTable() {
                     {eligible || targetPower ? (
                       <Button
                         className="nominate-button"
+                        data-player-action
+                        aria-label={`${eligible ? 'Nominate' : 'Choose'} ${p.name}`}
                         size="sm"
                         disabled={busy}
                         onClick={() =>
@@ -1278,6 +1332,47 @@ export default function GameTable() {
           </section>
         )}
       </main>
+
+      {game && (
+        <Popover open={chatOpen} onOpenChange={changeChatOpen} modal={false}>
+          <PopoverTrigger render={<Button className="chat-launcher" />}>
+            <MessageCircle /> Chat{' '}
+            {unreadChat > 0 && (
+              <span
+                className="chat-unread"
+                aria-label={`${unreadChat} unread messages`}
+              >
+                {unreadChat > 99 ? '99+' : unreadChat}
+              </span>
+            )}
+          </PopoverTrigger>
+          <PopoverContent
+            className="chat-popover paper"
+            side="top"
+            align="start"
+            sideOffset={10}
+          >
+            <div className="chat-popover-heading">
+              <PopoverTitle>Table conversation</PopoverTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Close chat"
+                onClick={() => changeChatOpen(false)}
+              >
+                <X />
+              </Button>
+            </div>
+            <Conversation
+              game={game}
+              act={act}
+              busy={busy || !online}
+              message={chatDraft}
+              setMessage={setChatDraft}
+            />
+          </PopoverContent>
+        </Popover>
+      )}
 
       <footer className="footer">
         <span>
@@ -1466,9 +1561,11 @@ export default function GameTable() {
               </a>
               , whose adapted PNGs are used with their original colors and
               borders. The logo and supporting illustrations come from the
-              official game. The responsive interface, networking, and rule
-              enforcement are new. This adaptation is unaffiliated with the
-              original creators and is released under{' '}
+              official game. The 12 selectable player portraits were created for
+              this app using AI image generation. Portraits are cosmetic and
+              independent of secret roles. The responsive interface, networking,
+              and rule enforcement are new. This adaptation is unaffiliated with
+              the original creators and is released under{' '}
               <a
                 href="https://creativecommons.org/licenses/by-nc-sa/4.0/"
                 target="_blank"
@@ -1770,7 +1867,7 @@ function ActionPanel({
       ? 'President, choose your chancellor.'
       : `${president?.name} is choosing a chancellor.`;
     description = isPresident
-      ? 'Open Players and select an eligible chancellor.'
+      ? 'Choose a highlighted player from the roster.'
       : 'Discuss who you trust while the president considers the next government.';
   } else if (game.phase === 'voting') {
     title = `${president?.name} + ${chancellor?.name}`;
@@ -1990,12 +2087,15 @@ function Conversation({
   game,
   act,
   busy,
+  message,
+  setMessage,
 }: {
   game: View;
   act: (action: Action) => Promise<boolean>;
   busy: boolean;
+  message: string;
+  setMessage: (value: string) => void;
 }) {
-  const [message, setMessage] = useState('');
   const [tab, setTab] = useState('chat');
   const scrollRef = useRef<HTMLDivElement>(null);
   const me = game.players.find((p) => p.id === game.me.id)!;

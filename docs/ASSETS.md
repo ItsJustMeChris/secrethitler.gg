@@ -21,6 +21,14 @@ Boards, policy tiles, role cards, and ballots come from the Git repository behin
 
 The included `docs/asset-manifest.json` records each copied file's exact source path, commit, dimensions, and SHA-256 checksum.
 
+## Original player portraits
+
+The 12 selectable player pictures in `public/assets/portraits/` were generated specifically for this app on 2026-09-10 using the built-in image-generation tool. Each was created independently from a text prompt with no reference images. They are not copied or adapted from Secret Hitler Online's player pictures. The portraits are cosmetic and carry no role information.
+
+The collection uses charcoal and ivory ink illustration on deep teal. All 1254 × 1254 originals were reduced proportionally to 256 × 256 PNGs for the app, preserving the entire image with no cropping, zoom, gamma adjustment, or recoloring. UI images use `object-fit: contain`. Total download size for the twelve portraits is approximately 1.39 MB.
+
+The [full generation prompts and final paths](original-portrait-prompts.json) and [asset manifest](asset-manifest.json) document every portrait. IDs 01–12 are The Archivist, The Courier, The Musician, The Astronomer, The Poet, The Mechanic, The Gardener, The Detective, The Tailor, The Painter, The Captain, and The Night Owl.
+
 ## Supporting official sources
 
 - Official print-and-play PDF: https://www.secrethitler.com/assets/Secret_Hitler_Print_and_Play.pdf
@@ -30,7 +38,7 @@ The included `docs/asset-manifest.json` records each copied file's exact source 
 
 ## Supporting asset preparation
 
-The initial version used monochrome print-and-play crops for cards and boards. Those have been replaced by the full-color assets above, and the CSS color filters have been removed. No artwork was generated or redrawn. The retained transparent logo has only its exterior white background removed; white lettering is preserved. Power icons were extracted from the official rules. The official website SVGs have their original CSS presentation declarations resolved to attributes so they display independently.
+The initial version used monochrome print-and-play crops for cards and boards. Those have been replaced by the full-color assets above, and the CSS color filters have been removed. Those game assets were not generated or redrawn. The retained transparent logo has only its exterior white background removed; white lettering is preserved. Power icons were extracted from the official rules. The official website SVGs have their original CSS presentation declarations resolved to attributes so they display independently.
 
 The manifest retains extraction details for these supporting assets. PDF page numbers are one-based, and rulebook crops are in PDF points with origin at top left. The website uses PNGs to preserve source quality and receive the correct image MIME type from its hosting layer. Monochrome power icons are tinted only for contrast against the dark mobile track.
 

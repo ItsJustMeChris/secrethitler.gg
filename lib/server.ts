@@ -7,6 +7,7 @@ import {
   randomInt,
   RuleError,
   validName,
+  validPortrait,
   viewFor,
 } from './game';
 import type { Action, Game } from './game';
@@ -260,6 +261,7 @@ export async function handle(request: Request) {
       const ip = request.headers.get('cf-connecting-ip') ?? 'local';
       await rate(`entry:${await hash(ip)}`, 40);
       const name = validName(input.name);
+      const portrait = validPortrait(input.portrait);
       if (input.operation !== 'join') {
         if (
           input.operation === 'solo' &&
@@ -276,7 +278,7 @@ export async function handle(request: Request) {
             { length: 8 },
             () => alphabet[randomInt(alphabet.length)],
           ).join('');
-          const game = newGame(code, session.id, name);
+          const game = newGame(code, session.id, name, portrait);
           game.fairness = await createFairness();
           if (input.operation === 'solo') {
             while (game.players.length < Number(input.seats)) addBot(game);
@@ -296,7 +298,12 @@ export async function handle(request: Request) {
         throw new HttpError('Could not create a table. Please try again.', 503);
       }
       const game = await updateRoom(codeOf(input.code), (game) =>
-        joinGame(game, session!.id, name),
+        joinGame(
+          game,
+          session!.id,
+          name,
+          input.portrait === undefined ? undefined : portrait,
+        ),
       );
       return json(await projected(game, session.id), 200, session.cookie);
     }

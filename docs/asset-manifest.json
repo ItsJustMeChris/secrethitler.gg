@@ -5,19 +5,9 @@
     "height": 912,
     "source": "Secret_Hitler_Rules.pdf",
     "page": 1,
-    "crop_pt": [
-      75,
-      227,
-      527,
-      542
-    ],
+    "crop_pt": [75, 227, 527, 542],
     "raster_scale": 3,
-    "trim_px": [
-      39,
-      2,
-      1347,
-      914
-    ]
+    "trim_px": [39, 2, 1347, 914]
   },
   {
     "name": "logo-transparent",
@@ -30,12 +20,7 @@
     "name": "power-investigate",
     "source": "Secret_Hitler_Rules.pdf",
     "page": 5,
-    "crop_pt": [
-      40,
-      665,
-      88,
-      711
-    ],
+    "crop_pt": [40, 665, 88, 711],
     "raster_scale": 6,
     "width": 288,
     "height": 276
@@ -44,12 +29,7 @@
     "name": "power-special-election",
     "source": "Secret_Hitler_Rules.pdf",
     "page": 5,
-    "crop_pt": [
-      309,
-      135,
-      358,
-      168
-    ],
+    "crop_pt": [309, 135, 358, 168],
     "raster_scale": 6,
     "width": 294,
     "height": 198
@@ -58,12 +38,7 @@
     "name": "power-peek",
     "source": "Secret_Hitler_Rules.pdf",
     "page": 5,
-    "crop_pt": [
-      309,
-      466,
-      357,
-      504
-    ],
+    "crop_pt": [309, 466, 357, 504],
     "raster_scale": 6,
     "width": 288,
     "height": 228
@@ -72,12 +47,7 @@
     "name": "power-execute",
     "source": "Secret_Hitler_Rules.pdf",
     "page": 5,
-    "crop_pt": [
-      309,
-      553,
-      355,
-      598
-    ],
+    "crop_pt": [309, 553, 355, 598],
     "raster_scale": 6,
     "width": 276,
     "height": 270
@@ -266,5 +236,161 @@
     "attribution": "Goat, Wolf & Cabbage; adapted artwork by ShrimpCryptid",
     "modifications": "Copied byte-for-byte; displayed at its original aspect ratio without color filters.",
     "sha256": "3a4e3683a646d3a489e8fc38256b877b80335cf3487d4750271698d7bcee089e"
+  },
+  {
+    "name": "original-portrait-01",
+    "title": "The Archivist",
+    "source": "Original artwork generated for this project with built-in imagegen, 2026-09-10",
+    "width": 256,
+    "height": 256,
+    "source_width": 1254,
+    "source_height": 1254,
+    "modifications": "Proportional downsample only; full square preserved, no crop or color adjustment.",
+    "path": "public/assets/portraits/original-portrait-01.png",
+    "sha256": "d16b95ad8c6d21365c03f84f677dceaf20bd5686e28fc3065bba7ee36733ccd6",
+    "prompt_file": "docs/original-portrait-prompts.json"
+  },
+  {
+    "name": "original-portrait-02",
+    "title": "The Courier",
+    "source": "Original artwork generated for this project with built-in imagegen, 2026-09-10",
+    "width": 256,
+    "height": 256,
+    "source_width": 1254,
+    "source_height": 1254,
+    "modifications": "Proportional downsample only; full square preserved, no crop or color adjustment.",
+    "path": "public/assets/portraits/original-portrait-02.png",
+    "sha256": "e7544950d34f059d10890a5fb4d4b5b7ed9e7d2d9bbada41eb81c6a2f9fca512",
+    "prompt_file": "docs/original-portrait-prompts.json"
+  },
+  {
+    "name": "original-portrait-03",
+    "title": "The Musician",
+    "source": "Original artwork generated for this project with built-in imagegen, 2026-09-10",
+    "width": 256,
+    "height": 256,
+    "source_width": 1254,
+    "source_height": 1254,
+    "modifications": "Proportional downsample only; full square preserved, no crop or color adjustment.",
+    "path": "public/assets/portraits/original-portrait-03.png",
+    "sha256": "87a6b270d5e5aa4ce211dbf050bcc8127ecc2abb62085276401471a1d554666d",
+    "prompt_file": "docs/original-portrait-prompts.json"
+  },
+  {
+    "name": "original-portrait-04",
+    "title": "The Astronomer",
+    "source": "Original artwork generated for this project with built-in imagegen, 2026-09-10",
+    "width": 256,
+    "height": 256,
+    "source_width": 1254,
+    "source_height": 1254,
+    "modifications": "Proportional downsample only; full square preserved, no crop or color adjustment.",
+    "path": "public/assets/portraits/original-portrait-04.png",
+    "sha256": "c9bcc2face00aa4bfef400ba363fcdb14affab941781b4089d9b823161ec8d2e",
+    "prompt_file": "docs/original-portrait-prompts.json"
+  },
+  {
+    "name": "original-portrait-05",
+    "title": "The Poet",
+    "source": "Original artwork generated for this project with built-in imagegen, 2026-09-10",
+    "width": 256,
+    "height": 256,
+    "source_width": 1254,
+    "source_height": 1254,
+    "modifications": "Proportional downsample only; full square preserved, no crop or color adjustment.",
+    "path": "public/assets/portraits/original-portrait-05.png",
+    "sha256": "72b33f95b3d5247b52b6662e8880e08daac54ca8a942ced5476aedeac53e0ae0",
+    "prompt_file": "docs/original-portrait-prompts.json"
+  },
+  {
+    "name": "original-portrait-06",
+    "title": "The Mechanic",
+    "source": "Original artwork generated for this project with built-in imagegen, 2026-09-10",
+    "width": 256,
+    "height": 256,
+    "source_width": 1254,
+    "source_height": 1254,
+    "modifications": "Proportional downsample only; full square preserved, no crop or color adjustment.",
+    "path": "public/assets/portraits/original-portrait-06.png",
+    "sha256": "6b6975d69baa06c391baa92cbdcbcea28ac497a62e6acb0790afb3684d5b4336",
+    "prompt_file": "docs/original-portrait-prompts.json"
+  },
+  {
+    "name": "original-portrait-07",
+    "title": "The Gardener",
+    "source": "Original artwork generated for this project with built-in imagegen, 2026-09-10",
+    "width": 256,
+    "height": 256,
+    "source_width": 1254,
+    "source_height": 1254,
+    "modifications": "Proportional downsample only; full square preserved, no crop or color adjustment.",
+    "path": "public/assets/portraits/original-portrait-07.png",
+    "sha256": "73eb0096dbf8b470a3035413f82d2fc157d36d771fa727c3b2003d8563dadd5c",
+    "prompt_file": "docs/original-portrait-prompts.json"
+  },
+  {
+    "name": "original-portrait-08",
+    "title": "The Detective",
+    "source": "Original artwork generated for this project with built-in imagegen, 2026-09-10",
+    "width": 256,
+    "height": 256,
+    "source_width": 1254,
+    "source_height": 1254,
+    "modifications": "Proportional downsample only; full square preserved, no crop or color adjustment.",
+    "path": "public/assets/portraits/original-portrait-08.png",
+    "sha256": "bfe7dd7e8afcd487c0b6178bb8f9a1ba30b0ef1c35cc22c4e0dadac5a7bd9e3d",
+    "prompt_file": "docs/original-portrait-prompts.json"
+  },
+  {
+    "name": "original-portrait-09",
+    "title": "The Tailor",
+    "source": "Original artwork generated for this project with built-in imagegen, 2026-09-10",
+    "width": 256,
+    "height": 256,
+    "source_width": 1254,
+    "source_height": 1254,
+    "modifications": "Proportional downsample only; full square preserved, no crop or color adjustment.",
+    "path": "public/assets/portraits/original-portrait-09.png",
+    "sha256": "1719d87c62fc0350f9318ef6b922d241619a4bd0a84dc512b2e1753f787f7b4f",
+    "prompt_file": "docs/original-portrait-prompts.json"
+  },
+  {
+    "name": "original-portrait-10",
+    "title": "The Painter",
+    "source": "Original artwork generated for this project with built-in imagegen, 2026-09-10",
+    "width": 256,
+    "height": 256,
+    "source_width": 1254,
+    "source_height": 1254,
+    "modifications": "Proportional downsample only; full square preserved, no crop or color adjustment.",
+    "path": "public/assets/portraits/original-portrait-10.png",
+    "sha256": "104effa9e9d4769913bf936e247a2c25da80da1e80bf5657c3d72a934ee6ea3a",
+    "prompt_file": "docs/original-portrait-prompts.json"
+  },
+  {
+    "name": "original-portrait-11",
+    "title": "The Captain",
+    "source": "Original artwork generated for this project with built-in imagegen, 2026-09-10",
+    "width": 256,
+    "height": 256,
+    "source_width": 1254,
+    "source_height": 1254,
+    "modifications": "Proportional downsample only; full square preserved, no crop or color adjustment.",
+    "path": "public/assets/portraits/original-portrait-11.png",
+    "sha256": "2bcdd0462713e447f4b3ae7a73e050b250a5651835ff18a57c133f312af1601b",
+    "prompt_file": "docs/original-portrait-prompts.json"
+  },
+  {
+    "name": "original-portrait-12",
+    "title": "The Night Owl",
+    "source": "Original artwork generated for this project with built-in imagegen, 2026-09-10",
+    "width": 256,
+    "height": 256,
+    "source_width": 1254,
+    "source_height": 1254,
+    "modifications": "Proportional downsample only; full square preserved, no crop or color adjustment.",
+    "path": "public/assets/portraits/original-portrait-12.png",
+    "sha256": "b5192f4c10a3c82547b34e713b1f92150a7cf3d021a364fffe05cf612bb686e3",
+    "prompt_file": "docs/original-portrait-prompts.json"
   }
 ]

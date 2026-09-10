@@ -93,15 +93,32 @@ const host = new Client(),
   friend = new Client(),
   outsider = new Client();
 let game = await host.request(
-  { operation: 'create', name: 'AI test host' },
+  { operation: 'create', name: 'AI test host', portrait: 12 },
   null,
   201,
 );
 const code = game.code;
 const savedCommitment = game.fairness.commitment;
 assert.equal(game.fairness.reveal, null);
-await friend.request({ operation: 'join', code, name: 'AI test friend' });
+assert.equal(game.players[0].portrait, 12);
+await friend.request(
+  { operation: 'join', code, name: 'AI test friend', portrait: 13 },
+  null,
+  400,
+);
+await friend.request({
+  operation: 'join',
+  code,
+  name: 'AI test friend',
+  portrait: 8,
+});
 game = await host.request(null, code);
+assert.equal(game.players.find((p) => p.id === friend.id).portrait, 8);
+await friend.action(game, { type: 'portrait', portrait: 0 }, 400);
+await friend.action(game, { type: 'portrait', portrait: 11 });
+game = await host.request(null, code);
+assert.equal(game.players.find((p) => p.id === friend.id).portrait, 11);
+assert.equal(game.players.find((p) => p.id === host.id).portrait, 12);
 await friend.action(game, { type: 'add-bot' }, 400);
 const addId = randomUUID();
 game = await host.action(game, { type: 'add-bot' }, 200, addId);
@@ -121,6 +138,7 @@ await friend.action(game, { type: 'ready' });
 game = await host.request(null, code);
 game = await host.action(game, { type: 'start' });
 await host.action(game, { type: 'add-bot' }, 400);
+await friend.action(game, { type: 'portrait', portrait: 2 }, 400);
 game = await host.action(game, { type: 'practice-settings', paused: true });
 const friendBeforeLeave = await friend.request(null, code);
 const leftLive = await friend.request({
@@ -141,8 +159,10 @@ game = await friend.request({
   operation: 'join',
   code,
   name: 'AI test friend',
+  portrait: 2,
 });
 assert.equal(game.me.role, friendBeforeLeave.me.role);
+assert.equal(game.players.find((p) => p.id === friend.id).portrait, 11);
 assert.equal(game.players.find((p) => p.id === friend.id).departed, false);
 await friend.tick(game, true, 400);
 await outsider.tick(game, false, 401);
@@ -214,6 +234,7 @@ game = await friend.request(null, code);
 assert.equal(game.hostId, friend.id);
 assert.equal(game.players.length, 9);
 game = await friend.action(game, { type: 'rematch' });
+assert.equal(game.players.find((p) => p.id === friend.id).portrait, 11);
 assert.equal(game.previousFairness.commitment, savedCommitment);
 assert.ok(game.previousFairness.reveal);
 assert.notEqual(game.fairness.commitment, savedCommitment);
@@ -238,11 +259,12 @@ await host.request(
   400,
 );
 game = await host.request(
-  { operation: 'solo', name: 'Solo host', seats: 10 },
+  { operation: 'solo', name: 'Solo host', seats: 10, portrait: 6 },
   null,
   201,
 );
 assert.equal(game.players.length, 10);
+assert.equal(game.players.find((p) => p.id === host.id).portrait, 6);
 assert.equal(game.players.filter((p) => p.bot).length, 9);
 assert.equal(game.phase, 'nomination');
 assert.ok(game.me.role);
