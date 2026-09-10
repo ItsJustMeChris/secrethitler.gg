@@ -1,0 +1,30 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import './table.css';
+@custom-variant dark (&:is(.dark *));
+@theme inline {
+  --color-background: #142720;
+  --color-foreground: #282d25;
+  --color-card: #f2eedf;
+  --color-card-foreground: #282d25;
+  --color-popover: #f2eedf;
+  --color-popover-foreground: #282d25;
+  --color-primary: #bc5742;
+  --color-primary-foreground: #fff8e9;
+  --color-secondary: #e8dfc8;
+  --color-secondary-foreground: #242b24;
+  --color-muted: #e8dfce;
+  --color-muted-foreground: #706e60;
+  --color-accent: #e8dfce;
+  --color-accent-foreground: #222c26;
+  --color-destructive: #b94a3b;
+  --color-border: #ccc5b4;
+  --color-input: #bbb7a8;
+  --color-ring: #b58d4e;
+  --font-sans: 'Trebuchet MS', Arial, sans-serif;
+  --font-heading: Georgia, serif;
+  --radius-lg: 4px;
+  --radius-md: 3px;
+  --radius-sm: 2px;
+}
