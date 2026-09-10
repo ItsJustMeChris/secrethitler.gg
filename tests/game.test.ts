@@ -380,14 +380,49 @@ void test('government is muted during legislation, other living players can spea
     applyAction(game, 'p2', { type: 'chat', text: 'I do not trust them.' }),
   );
 });
-void test('host leaves lobby: next seat becomes host; in-progress seats cannot be removed', () => {
+void test('leaving transfers hosting; live seats stay reserved and can rejoin', () => {
   const game = newGame('ABCDEFGH', 'p0', 'Player 0');
   joinGame(game, 'p1', 'Player 1');
   applyAction(game, 'p0', { type: 'leave' });
   assert.equal(game.hostId, 'p1');
   const live = started();
   assert.throws(() => applyAction(live, 'p0', { type: 'kick', target: 'p1' }));
-  assert.throws(() => applyAction(live, 'p0', { type: 'leave' }));
+  const roles = live.players.map((p) => p.role);
+  applyAction(live, 'p0', { type: 'leave' });
+  assert.equal(live.hostId, 'p1');
+  assert.equal(live.players[0].departed, true);
+  assert.deepEqual(
+    live.players.map((p) => p.role),
+    roles,
+  );
+  assert.throws(() =>
+    applyAction(live, 'p0', { type: 'chat', text: 'Still here?' }),
+  );
+  joinGame(live, 'p0', 'Player 0');
+  assert.equal(live.players[0].departed, false);
+  assert.deepEqual(
+    live.players.map((p) => p.role),
+    roles,
+  );
+  assert.equal(live.hostId, 'p1');
+});
+void test('finished players can leave; rematch drops departed seats and can expand to ten', () => {
+  const game = started(7);
+  applyAction(game, 'p2', { type: 'leave' });
+  game.phase = 'finished';
+  applyAction(game, 'p0', { type: 'leave' });
+  assert.equal(game.hostId, 'p1');
+  assert.equal(game.players.length, 6);
+  applyAction(game, 'p1', { type: 'rematch' });
+  assert.equal(game.phase, 'lobby');
+  assert.equal(game.players.length, 5);
+  assert.ok(game.players.every((p) => !p.departed && !p.role));
+  applyAction(game, 'p1', { type: 'fill-bots' });
+  assert.equal(game.players.length, 10);
+  for (const p of game.players.filter((p) => !p.bot))
+    applyAction(game, p.id, { type: 'ready' });
+  applyAction(game, 'p1', { type: 'start' });
+  assert.equal(game.initialCount, 10);
 });
 void test('rematch resets secrets, readiness, policies and knowledge but advances round', () => {
   const game = started();
