@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   description:
     'The original game of hidden loyalties, played together online. Create a private table for 5–10 friends.',
   robots: { index: false, follow: false },
-  icons: { icon: '/assets/logo-transparent.webp' },
+  icons: { icon: '/assets/logo-transparent.png' },
 };
 export const viewport: Viewport = {
   width: 'device-width',

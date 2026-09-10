@@ -56,7 +56,7 @@ const phaseNames: Record<string, string> = {
   executive: 'Executive action',
   finished: 'Game over',
 };
-const asset = (name: string) => `/assets/${name}.webp`;
+const asset = (name: string) => `/assets/${name}.png`;
 
 async function api(input?: Record<string, unknown>, code?: string) {
   const response = await fetch(

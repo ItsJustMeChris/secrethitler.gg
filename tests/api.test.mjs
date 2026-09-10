@@ -1,8 +1,9 @@
-// Runs against the real local worker and SQLite/D1, without browser automation.
+// Runs against the real local or hosted worker and D1, without browser automation.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
 const base = process.env.TEST_URL || 'http://localhost:3000';
+const local = ['localhost', '127.0.0.1'].includes(new URL(base).hostname);
 const ip = `test-${randomUUID()}`; // Only local request headers; production CF sets the real IP.
 class Client {
   cookie = '';
@@ -15,17 +16,21 @@ class Client {
         headers: {
           Cookie: this.cookie,
           Origin: base,
-          'CF-Connecting-IP': ip,
+          ...(local ? { 'CF-Connecting-IP': ip } : {}),
           ...(input ? { 'Content-Type': 'application/json' } : {}),
           ...options.headers,
         },
         ...(input ? { body: JSON.stringify(input) } : {}),
       },
     );
-    const cookie = response.headers.get('set-cookie');
+    // Hosting may also set its own unrelated cookies.
+    const cookie = response.headers
+      .getSetCookie()
+      .find((value) => value.startsWith('sh_session='));
     if (cookie) {
       assert.match(cookie, /HttpOnly/);
       assert.match(cookie, /SameSite=Strict/);
+      if (base.startsWith('https:')) assert.match(cookie, /Secure/);
       this.cookie = cookie.split(';')[0];
     }
     // Vite's outer Origin guard may reject before the application route runs.
@@ -260,7 +265,7 @@ for (const file of [
   'ballot-ja',
   'logo-transparent',
 ]) {
-  const image = await fetch(`${base}/assets/${file}.webp`);
+  const image = await fetch(`${base}/assets/${file}.png`);
   assert.equal(image.status, 200);
   assert.match(image.headers.get('content-type'), /image/);
 }

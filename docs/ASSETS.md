@@ -16,7 +16,7 @@ License URL: https://creativecommons.org/licenses/by-nc-sa/4.0/
 
 Original artwork was extracted, cropped, rotated, assembled from the supplied printable halves, and exported as PNG and WebP. No artwork was generated or redrawn. The print-and-play source is monochrome. Board edges were cropped just inside the print cutting frame. The transparent logo has only its exterior white background removed; white lettering is preserved. The official website SVGs have their original CSS presentation declarations resolved to attributes so they display independently.
 
-The included `docs/asset-manifest.json` records the exact crop coordinates and source operations. PDF page numbers in the manifest are one-based. All print-and-play crops use the original 3300 x 2550 embedded image with origin at top left. All rulebook crops are in PDF points with origin at top left. PNGs preserve source resolution, and WebP files provide smaller versions for the website.
+The included `docs/asset-manifest.json` records the exact crop coordinates and source operations. PDF page numbers in the manifest are one-based. All print-and-play crops use the original 3300 x 2550 embedded image with origin at top left. All rulebook crops are in PDF points with origin at top left. The website uses the PNG exports to preserve source resolution and receive the correct image MIME type from its hosting layer.
 
 ## Verified rules and powers
 
