@@ -8,7 +8,15 @@ Create a table, share its eight-character code or invite URL, and have every hum
 
 Includes the three original power tracks, exact roles and 17-policy deck, simultaneous ballot reveal, term limits based on surviving players, election chaos, private legislation, vetoes, investigation, policy peek, special-election rotation, execution, and all four win conditions. Table text chat enforces the government’s legislative silence and eliminated players’ silence. A rematch returns everyone to the lobby with new readiness and fresh roles.
 
-On phones, Table / Players / Chat & role navigation separates the working areas, policy slots replace tiny printed-board text, and current actions appear before the tracks. Inputs avoid iOS focus zoom, touch controls have expanded targets, dialogs scroll within the viewport, and bottom navigation accounts for safe-area insets. This is a mobile web app, not a native app-store binary.
+Table / Players / Chat / Your seat navigation separates the working areas on every screen size. A sticky room toolbar keeps seat, invite, fair play, and leave controls available. Turn actions appear above compact boards; larger board artwork is optional on desktop. Coach/AI controls and the previous election are expandable. Inputs avoid iOS focus zoom, touch controls have expanded targets, and dialogs scroll within the viewport. This is a mobile web app, not a native app-store binary.
+
+Players can leave at any phase. Lobby and finished seats are freed; live seats remain reserved to preserve the original rules, so the match may wait for an absent player's turn. Rejoining the same room with the same browser restores that seat. Hosting passes to another present human. Rematches remove departed seats, return to the lobby, and allow friends or AI to fill up to 10 seats. Known teammates appear in a private, hideable strip using the server's role/table-size rules; Hitler sees the Fascist only in 5–6 player games.
+
+## Verifiable shuffle receipts
+
+Each new lobby publishes a SHA-256 commitment to a fresh 256-bit server seed. The seed stays private through the match; AES-256-CTR generates a deterministic random stream and rejection sampling feeds Fisher–Yates for roles, policies, the first president, and reshuffles. At game end, the browser can replay the recorded shuffles against its saved commitment and download a JSON receipt. The previous completed receipt survives a rematch, including for clients that missed the brief finished phase.
+
+The Fair play panel includes the probability derivation and links to NIST and W3C references. The check verifies seed commitment and shuffle replay, not honest seed selection, actual card delivery, every rule transition, or absence of player collusion. Solo players and late arrivals first observe the commitment after the deal. Older active games keep their existing random process and gain receipts in the next lobby. Tests cover independent AES output, secret isolation, tamper rejection, all player counts, and receipt renewal.
 
 ## AI opponents and learning
 

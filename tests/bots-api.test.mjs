@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { freshMemory, observe, planBot } from '../lib/bots.ts';
+import { verifyFairness } from '../lib/fairness.ts';
 
 const base = process.env.TEST_URL || 'http://localhost:3000';
 const local = ['localhost', '127.0.0.1'].includes(new URL(base).hostname);
@@ -97,6 +98,8 @@ let game = await host.request(
   201,
 );
 const code = game.code;
+const savedCommitment = game.fairness.commitment;
+assert.equal(game.fairness.reveal, null);
 await friend.request({ operation: 'join', code, name: 'AI test friend' });
 game = await host.request(null, code);
 await friend.action(game, { type: 'add-bot' }, 400);
@@ -119,6 +122,28 @@ game = await host.request(null, code);
 game = await host.action(game, { type: 'start' });
 await host.action(game, { type: 'add-bot' }, 400);
 game = await host.action(game, { type: 'practice-settings', paused: true });
+const friendBeforeLeave = await friend.request(null, code);
+const leftLive = await friend.request({
+  operation: 'action',
+  code,
+  requestId: randomUUID(),
+  phase: 'lobby',
+  round: -1,
+  action: { type: 'leave' },
+});
+assert.equal(leftLive.left, true);
+await friend.request(null, code, 401);
+await friend.tick(game, false, 400);
+const reserved = await host.request(null, code);
+assert.equal(reserved.players.length, 10);
+assert.equal(reserved.players.find((p) => p.id === friend.id).departed, true);
+game = await friend.request({
+  operation: 'join',
+  code,
+  name: 'AI test friend',
+});
+assert.equal(game.me.role, friendBeforeLeave.me.role);
+assert.equal(game.players.find((p) => p.id === friend.id).departed, false);
 await friend.tick(game, true, 400);
 await outsider.tick(game, false, 401);
 await outsider.request(
@@ -171,6 +196,8 @@ while (game.phase !== 'finished' && moves++ < 450) {
   }
 }
 assert.equal(game.phase, 'finished');
+const verified = await verifyFairness(game.fairness, savedCommitment);
+assert.equal(verified.players, 10);
 assert.ok(game.players.every((p) => p.role));
 assert.ok(
   game.messages.some((m) =>
@@ -182,7 +209,16 @@ reconnect.cookie = host.cookie;
 const restored = await reconnect.request(null, code);
 assert.equal(restored.me.id, host.id);
 assert.equal(restored.winner, game.winner);
-game = await host.action(game, { type: 'rematch' });
+assert.equal((await host.action(game, { type: 'leave' })).left, true);
+game = await friend.request(null, code);
+assert.equal(game.hostId, friend.id);
+assert.equal(game.players.length, 9);
+game = await friend.action(game, { type: 'rematch' });
+assert.equal(game.previousFairness.commitment, savedCommitment);
+assert.ok(game.previousFairness.reveal);
+assert.notEqual(game.fairness.commitment, savedCommitment);
+assert.equal(game.fairness.reveal, null);
+game = await host.request({ operation: 'join', code, name: 'AI test host' });
 assert.equal(game.phase, 'lobby');
 assert.equal(game.players.filter((p) => p.bot && p.ready).length, 8);
 assert.equal(game.players.filter((p) => !p.bot && p.ready).length, 0);

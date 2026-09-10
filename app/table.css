@@ -2444,3 +2444,460 @@ input {
   color: #375840;
   font-size: 0.875rem;
 }
+
+/* A room is a working table: persistent controls and one section at a time. */
+.in-room .masthead {
+  min-height: 56px;
+  padding-block: 6px;
+}
+.in-room .brand img {
+  width: 64px;
+  height: 44px;
+}
+.in-room .brand > span {
+  display: none;
+}
+.workspace.has-room {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 1180px;
+  padding: 12px 24px 24px;
+  gap: 16px;
+}
+.has-room .workspace-heading {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 20px;
+  margin: 0;
+  padding: 10px 0 0;
+  background: #142720;
+  box-shadow: 0 -12px 0 #142720;
+}
+.has-room .workspace-heading h1 {
+  font-size: 1.25rem;
+  letter-spacing: 0;
+}
+.has-room .workspace-heading .eyebrow {
+  font-size: 0.75rem;
+  margin-bottom: 2px;
+  letter-spacing: 0.08em;
+}
+.room-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+.room-actions .invite-button {
+  min-height: 44px;
+  padding: 0 12px;
+  font-size: 0.875rem;
+}
+.room-actions svg {
+  width: 16px;
+  height: 16px;
+}
+.section-nav {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
+  gap: 4px;
+  border-bottom: 1px solid #aeb79840;
+}
+.section-nav button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  font-size: 0.875rem;
+  color: #d0d8c5;
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+}
+.section-nav button[aria-current='page'] {
+  background: #c9b28216;
+  border-color: #dcc493;
+  color: #f4e1b7;
+}
+.section-nav svg {
+  width: 18px;
+  height: 18px;
+}
+.known-allies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  align-items: center;
+  width: 100%;
+  padding: 8px 12px;
+  background: #402c29;
+  border: 1px solid #986958;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+.known-allies > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #dcb899;
+}
+.known-allies button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  min-height: 32px;
+  color: #f0d6bc;
+}
+.has-room .chamber,
+.has-room .side-panel,
+.has-room .players-panel {
+  display: none;
+  grid-column: 1 / -1;
+  width: 100%;
+}
+.has-room.mobile-table .chamber {
+  display: flex;
+  flex-direction: column;
+}
+.has-room.mobile-players .players-panel {
+  display: block;
+}
+.has-room.mobile-chat .side-panel,
+.has-room.mobile-seat .side-panel,
+.has-room.lobby.mobile-table .side-panel {
+  display: flex;
+  max-width: 760px;
+  margin-inline: auto;
+}
+.has-room.mobile-chat .seat-card,
+.has-room.mobile-seat .conversation,
+.has-room.lobby.mobile-table .conversation,
+.has-room.lobby.mobile-table .chamber,
+.has-room.lobby.mobile-table .players-panel {
+  display: none;
+}
+.has-room .chamber-bar {
+  order: 0;
+  padding: 10px 16px;
+}
+.turn-action {
+  order: 1;
+}
+.turn-action .action-panel {
+  padding: 16px 20px;
+  border-top: 0;
+  border-bottom: 1px solid #8293663f;
+}
+.turn-action .action-panel h2 {
+  font-size: clamp(1.25rem, 2vw, 1.6rem);
+}
+.turn-action .action-panel > p:not(.eyebrow) {
+  font-size: 1rem;
+}
+.turn-action .ballots,
+.turn-action .policy-choices {
+  margin-top: 12px;
+}
+.board-view-tools {
+  order: 2;
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 16px 0;
+}
+.board-view-tools button {
+  min-height: 32px;
+  font-size: 0.875rem;
+}
+.has-room .board-surface {
+  order: 3;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 12px 20px 16px;
+}
+.has-room .board-divider {
+  display: none;
+}
+.has-room .deck-tracker {
+  grid-column: 1 / -1;
+  margin-top: 0;
+  padding-top: 10px;
+}
+.has-room .policy-caption {
+  margin-top: 8px;
+  font-size: 0.875rem;
+}
+.has-room.boards-expanded .board-surface {
+  grid-template-columns: minmax(0, 1fr);
+}
+.has-room .learning-tools {
+  order: 4;
+  padding: 0 16px;
+}
+.learning-tools > summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding: 10px 0;
+  font-size: 0.875rem;
+  color: #dfd7bc;
+}
+.learning-tools[open] {
+  padding-bottom: 16px;
+}
+.last-election {
+  text-align: left;
+  margin-top: 12px;
+}
+.last-election summary {
+  cursor: pointer;
+  min-height: 36px;
+  font-size: 0.875rem;
+  padding-top: 8px;
+}
+.last-election > div {
+  margin-top: 6px;
+}
+.has-room .seat-card {
+  width: 100%;
+  padding: 20px 24px;
+}
+.has-room .seat-card h2 {
+  font-size: 1.5rem;
+}
+.has-room .seat-card > p {
+  margin-bottom: 12px;
+}
+.seat-utility-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+.seat-utility-actions button {
+  min-height: 44px;
+  color: #2e4834;
+  background: transparent;
+  border-color: #8a9b7f;
+  font-size: 0.875rem;
+}
+.next-match-controls {
+  margin-top: 12px;
+}
+.next-match-controls p,
+.next-match-note {
+  font-size: 0.875rem;
+  margin-top: 10px;
+}
+.has-room .players-panel {
+  padding: 18px;
+}
+.has-room .players-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.has-room .player {
+  min-height: 88px;
+}
+.has-room .player-info > b {
+  font-size: 1rem;
+}
+.has-room .player-info > span {
+  font-size: 0.875rem;
+}
+.has-room .chat-scroll,
+.has-room .log-scroll {
+  height: clamp(220px, 46dvh, 560px);
+}
+.has-room ~ .footer {
+  padding: 8px 24px 18px;
+  font-size: 0.75rem;
+}
+.fair-proof {
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #85927570;
+}
+.fair-proof h3 {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.proof-hash {
+  display: block;
+  overflow-wrap: anywhere;
+  padding: 12px;
+  background: #e3e6d6;
+  color: #283c2f;
+  font-size: 0.8125rem;
+}
+.proof-meta,
+.proof-limits {
+  font-size: 0.875rem;
+}
+.proof-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0;
+}
+.proof-actions button {
+  min-height: 44px;
+  font-size: 0.875rem;
+  white-space: normal;
+}
+.proof-actions [data-slot='button'] {
+  background: #304d39;
+  color: #f5eddd;
+}
+.proof-result {
+  display: block;
+  padding: 12px;
+  border: 1px solid #819777;
+  background: #e1e8d8;
+  overflow-wrap: anywhere;
+}
+.math-line {
+  padding: 10px;
+  background: #e3e6d6;
+  font-family: Georgia, serif;
+  font-size: 1.1rem;
+  text-align: center;
+}
+@media (max-width: 700px) {
+  .workspace.has-room {
+    padding: 8px 12px 16px;
+    gap: 12px;
+  }
+  .in-room .masthead {
+    padding: 4px 12px;
+    min-height: 48px;
+  }
+  .in-room .brand img {
+    width: 54px;
+    height: 38px;
+  }
+  .has-room .workspace-heading {
+    gap: 8px;
+  }
+  .has-room .workspace-heading > div:first-child {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .has-room .workspace-heading h1 {
+    font-size: 1rem;
+  }
+  .has-room .workspace-heading .eyebrow {
+    margin: 0;
+  }
+  .room-actions {
+    width: 100%;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .room-actions .invite-button {
+    padding: 4px;
+    gap: 5px;
+    font-size: 0.8125rem;
+  }
+  .room-actions svg {
+    display: none;
+  }
+  .section-nav {
+    gap: 0;
+  }
+  .section-nav button {
+    flex-direction: column;
+    gap: 3px;
+    padding: 6px 2px;
+    min-height: 54px;
+    font-size: 0.8125rem;
+  }
+  .known-allies {
+    padding: 6px 8px;
+    gap: 4px 10px;
+    font-size: 0.8125rem;
+  }
+  .has-room.mobile-players .players-panel {
+    display: block;
+  }
+  .has-room.mobile-chat .side-panel,
+  .has-room.mobile-seat .side-panel {
+    display: flex;
+  }
+  .has-room .players-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .has-room .players-panel {
+    padding: 12px;
+  }
+  .has-room .player {
+    padding: 10px;
+    min-height: 92px;
+  }
+  .has-room .player-info > b {
+    font-size: 0.875rem;
+  }
+  .has-room .player-info > span {
+    font-size: 0.8125rem;
+  }
+  .has-room .seat-card {
+    padding: 18px;
+  }
+  .has-room .board-surface {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px;
+  }
+  .has-room .board-view-tools {
+    display: none;
+  }
+  .has-room .mobile-policy-slot {
+    min-height: 80px;
+  }
+  .has-room .policy-caption {
+    font-size: 0.8125rem;
+    line-height: 1.4;
+  }
+  .has-room .policy-heading {
+    margin-bottom: 6px;
+  }
+  .has-room .deck-tracker {
+    gap: 10px;
+    justify-content: space-between;
+  }
+  .turn-action .action-panel {
+    padding: 14px 12px;
+  }
+  .turn-action .action-panel h2 {
+    font-size: 1.25rem;
+  }
+  .turn-action .action-button {
+    white-space: normal;
+  }
+  .turn-action .ballot {
+    width: 106px;
+  }
+  .turn-action .policy-choice {
+    max-width: 80px;
+  }
+  .has-room ~ .footer {
+    padding: 8px 12px 18px;
+  }
+}
+@media (max-height: 550px) {
+  .has-room .workspace-heading {
+    position: static;
+  }
+}

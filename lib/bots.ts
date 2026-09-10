@@ -424,7 +424,7 @@ export function authorizeTick(
   manual: boolean,
   revision: unknown,
 ) {
-  if (!game.players.some((p) => p.id === actorId && !p.bot))
+  if (!game.players.some((p) => p.id === actorId && !p.bot && !p.departed))
     throw new RuleError('You are not seated at this table.');
   if (!game.practice) throw new RuleError('This table has no AI players.');
   if (manual && (actorId !== game.hostId || !game.practice.paused))

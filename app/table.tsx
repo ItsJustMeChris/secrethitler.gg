@@ -49,6 +49,7 @@ import {
 } from '@/components/ui/select';
 import { coachTip } from '@/lib/coach';
 import type { Action, GameView, Policy, Power } from '@/lib/game';
+import { FairPlayProof, rememberFairness } from './fair-play';
 
 type View = Omit<GameView, 'players'> & {
   players: (GameView['players'][number] & { connected: boolean })[];
@@ -119,6 +120,8 @@ export default function GameTable() {
   const [roleOpen, setRoleOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [mobilePanel, setMobilePanel] = useState('table');
+  const [alliesHidden, setAlliesHidden] = useState(false);
+  const [boardsExpanded, setBoardsExpanded] = useState(false);
   const [choice, setChoice] = useState<{
     action: Action;
     title: string;
@@ -131,17 +134,37 @@ export default function GameTable() {
   const accept = useCallback((next: View) => {
     const current = gameRef.current;
     if (current?.code === next.code && current.revision > next.revision) return;
+    rememberFairness(next.previousFairness, 'finished');
+    rememberFairness(next.fairness, next.phase);
+    if (
+      current?.code !== next.code ||
+      (current.phase !== 'lobby' && next.phase === 'lobby')
+    ) {
+      setMobilePanel('table');
+      setRoleOpen(false);
+      setAlliesHidden(false);
+      setChoice(null);
+    }
     gameRef.current = next;
     setGame(next);
     setOnline(true);
   }, []);
   const clear = () => {
+    if (
+      gameRef.current &&
+      !['lobby', 'finished'].includes(gameRef.current.phase)
+    ) {
+      setCode(gameRef.current.code);
+      setEntry('join');
+    }
     gameRef.current = null;
     setGame(null);
     localStorage.removeItem('sh-room');
     history.replaceState(null, '', '/');
     setRoleOpen(false);
     setReadAloud(false);
+    setChoice(null);
+    setMobilePanel('table');
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   };
 
@@ -343,6 +366,8 @@ export default function GameTable() {
       else {
         accept(next);
         if (next.me.notes.length > current.me.notes.length) setRoleOpen(true);
+        if (['nominate', 'power', 'rematch', 'start'].includes(action.type))
+          setMobilePanel('table');
       }
       setChoice(null);
       return true;
@@ -394,9 +419,19 @@ export default function GameTable() {
   }
   const me = game?.players.find((p) => p.id === game.me.id);
   const inGame = game && game.phase !== 'lobby';
+  const leave = () => {
+    if (!game) return;
+    choose({
+      action: { type: 'leave' },
+      title: 'Leave this table?',
+      description: ['lobby', 'finished'].includes(game.phase)
+        ? 'Your seat will be freed. If you host, another human player becomes host.'
+        : 'Your seat stays reserved until this match ends. The game may wait for your turn. Rejoin with this room’s link and the same browser to return; hosting passes to another player.',
+    });
+  };
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${game ? 'in-room' : ''}`}>
       <header className="masthead">
         <Link className="brand" href="/" aria-label="Secret Hitler home">
           <img
@@ -439,38 +474,112 @@ export default function GameTable() {
       </header>
 
       <main
-        className={`workspace ${game ? `has-room ${game.phase}` : 'start-screen'} mobile-${mobilePanel}`}
+        className={`workspace ${game ? `has-room ${game.phase}` : 'start-screen'} mobile-${mobilePanel} ${boardsExpanded ? 'boards-expanded' : ''}`}
       >
         <div className="workspace-heading">
           <div>
             <p className="eyebrow">
               {game
-                ? `PRIVATE TABLE / ${game.code.slice(0, 4)} ${game.code.slice(4)}`
+                ? `ROOM ${game.code.slice(0, 4)} ${game.code.slice(4)} · ${game.players.length}/10`
                 : 'A GAME OF HIDDEN LOYALTIES'}
             </p>
             <h1>
               {game
                 ? game.phase === 'lobby'
-                  ? 'Gather your conspirators.'
-                  : 'The chamber is in session.'
+                  ? 'Waiting lobby'
+                  : game.phase === 'finished'
+                    ? 'Match complete'
+                    : `Round ${game.round}`
                 : 'Take a seat. Trust no one.'}
             </h1>
           </div>
           {game ? (
-            <Button
-              className="invite-button"
-              variant="outline"
-              onClick={invite}
-            >
-              {copied ? <Check /> : <Copy />}
-              {copied ? 'Link copied' : 'Invite friends'}
-            </Button>
+            <div className="room-actions">
+              <Button
+                variant="outline"
+                className="invite-button"
+                onClick={() => setMobilePanel('seat')}
+              >
+                <Users /> Your seat
+              </Button>
+              <Button
+                className="invite-button"
+                variant="outline"
+                onClick={invite}
+              >
+                {copied ? <Check /> : <Copy />}
+                {copied ? 'Copied' : 'Invite'}
+              </Button>
+              <Button
+                variant="outline"
+                className="invite-button"
+                onClick={() => setPrivacy(true)}
+              >
+                <ShieldCheck /> Fair play
+              </Button>
+              <Button
+                variant="outline"
+                className="invite-button"
+                onClick={leave}
+                disabled={busy}
+              >
+                <ArrowLeft /> Leave
+              </Button>
+            </div>
           ) : (
             <span className="edition-mark">
               EST. 1932
               <br />
               <span>LIBERTY HANGS IN THE BALANCE</span>
             </span>
+          )}
+          {game && (
+            <>
+              {inGame && game.me.teammates.length > 0 && (
+                <div
+                  className="known-allies"
+                  aria-label="Your private team knowledge"
+                >
+                  <span>
+                    <LockKeyhole size={14} /> Your allies
+                  </span>
+                  {!alliesHidden &&
+                    game.me.teammates.map((p) => (
+                      <span key={p.id}>
+                        <b>{p.name}</b> ·{' '}
+                        {p.role === 'hitler' ? 'Hitler' : 'Fascist'}
+                        {!game.players.find((seat) => seat.id === p.id)?.alive
+                          ? ' · executed'
+                          : ''}
+                      </span>
+                    ))}
+                  <button
+                    className="text-button"
+                    onClick={() => setAlliesHidden(!alliesHidden)}
+                  >
+                    {alliesHidden ? <Eye size={16} /> : <EyeOff size={16} />}
+                    {alliesHidden ? 'Show' : 'Hide'}
+                  </button>
+                </div>
+              )}
+              <nav className="section-nav" aria-label="Table sections">
+                {[
+                  { id: 'table', icon: <Flag />, text: 'Table' },
+                  { id: 'players', icon: <Users />, text: 'Players' },
+                  { id: 'chat', icon: <MessageCircle />, text: 'Chat' },
+                  { id: 'seat', icon: <LockKeyhole />, text: 'Your seat' },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    aria-current={mobilePanel === item.id ? 'page' : undefined}
+                    onClick={() => setMobilePanel(item.id)}
+                  >
+                    {item.icon}
+                    {item.text}
+                  </button>
+                ))}
+              </nav>
+            </>
           )}
         </div>
         {error && (
@@ -505,7 +614,10 @@ export default function GameTable() {
             </span>
           </div>
           {game && (
-            <div className="learning-tools">
+            <details className="learning-tools" open={coaching || undefined}>
+              <summary>
+                Coach & AI controls {game.practice?.paused ? '· AI paused' : ''}
+              </summary>
               <div className="learning-toolbar">
                 <label className="coach-toggle" htmlFor="coach-switch">
                   <BookOpen size={17} /> Coach
@@ -612,16 +724,27 @@ export default function GameTable() {
                   </button>
                 </div>
               )}
-            </div>
+            </details>
           )}
           {inGame && (
-            <div className="mobile-action">
+            <div className="turn-action">
               <ActionPanel
                 game={game}
                 busy={busy || !online}
                 act={act}
                 choose={choose}
+                onPlayers={() => setMobilePanel('players')}
               />
+            </div>
+          )}
+          {game && (
+            <div className="board-view-tools">
+              <button
+                className="text-button"
+                onClick={() => setBoardsExpanded(!boardsExpanded)}
+              >
+                {boardsExpanded ? 'Compact boards' : 'Larger boards'}
+              </button>
             </div>
           )}
           <div className="board-surface">
@@ -699,16 +822,7 @@ export default function GameTable() {
               </div>
             )}
           </div>
-          {inGame ? (
-            <div className="desktop-action">
-              <ActionPanel
-                game={game}
-                busy={busy || !online}
-                act={act}
-                choose={choose}
-              />
-            </div>
-          ) : (
+          {!inGame && (
             <div className="chamber-foot">
               <ShieldCheck size={17} />
               <span>Secret roles. Sealed ballots. The original game.</span>
@@ -891,7 +1005,7 @@ export default function GameTable() {
                     <p>
                       {game.players.length < 5
                         ? `${5 - game.players.length} more ${game.players.length === 4 ? 'player' : 'players'} needed to begin.`
-                        : 'Everyone is here. Ready when you are.'}
+                        : `${game.players.filter((p) => p.ready).length} of ${game.players.length} players ready. Open Players to see the table.`}
                     </p>
                     <Button
                       className={`primary-button ${me?.ready ? 'ready-button' : ''}`}
@@ -937,13 +1051,6 @@ export default function GameTable() {
                         Deal the roles <ArrowRight />
                       </Button>
                     )}
-                    <button
-                      className="text-button leave-button"
-                      onClick={() => act({ type: 'leave' })}
-                      disabled={busy}
-                    >
-                      <ArrowLeft size={14} /> Leave table
-                    </button>
                   </>
                 ) : (
                   <>
@@ -975,8 +1082,34 @@ export default function GameTable() {
                         </>
                       )}
                     </div>
+                    {game.phase === 'finished' && (
+                      <div className="next-match-controls">
+                        {game.hostId === game.me.id ? (
+                          <Button
+                            className="start-button"
+                            disabled={busy}
+                            onClick={() => act({ type: 'rematch' })}
+                          >
+                            Open lobby <ArrowRight />
+                          </Button>
+                        ) : (
+                          <p>
+                            The host can reopen the lobby for another match.
+                          </p>
+                        )}
+                        <p>Add friends or AI, change seats, then deal again.</p>
+                      </div>
+                    )}
                   </>
                 )}
+                <div className="seat-utility-actions">
+                  <Button variant="outline" onClick={invite}>
+                    <Copy /> Invite friends
+                  </Button>
+                  <Button variant="outline" onClick={leave} disabled={busy}>
+                    <ArrowLeft /> Leave table
+                  </Button>
+                </div>
               </div>
               <Conversation game={game} act={act} busy={busy} />
             </>
@@ -1053,27 +1186,29 @@ export default function GameTable() {
                       <span>
                         {game.phase === 'finished'
                           ? p.role
-                          : !p.alive
-                            ? 'Executed'
-                            : p.id === game.president
-                              ? 'President'
-                              : p.id === game.chancellor
-                                ? 'Chancellor'
-                                : game.phase === 'lobby'
-                                  ? p.ready
-                                    ? 'Ready to play'
-                                    : 'Getting settled'
-                                  : game.phase === 'voting' &&
-                                      game.voted.includes(p.id)
-                                    ? 'Ballot sealed'
-                                    : game.eligible.includes(p.id)
-                                      ? 'Eligible for chancellor'
-                                      : p.id === game.lastChancellor ||
-                                          (game.players.filter((p) => p.alive)
-                                            .length > 5 &&
-                                            p.id === game.lastPresident)
-                                        ? 'Term-limited'
-                                        : 'In the chamber'}
+                          : p.departed
+                            ? 'Away · seat reserved'
+                            : !p.alive
+                              ? 'Executed'
+                              : p.id === game.president
+                                ? 'President'
+                                : p.id === game.chancellor
+                                  ? 'Chancellor'
+                                  : game.phase === 'lobby'
+                                    ? p.ready
+                                      ? 'Ready to play'
+                                      : 'Getting settled'
+                                    : game.phase === 'voting' &&
+                                        game.voted.includes(p.id)
+                                      ? 'Ballot sealed'
+                                      : game.eligible.includes(p.id)
+                                        ? 'Eligible for chancellor'
+                                        : p.id === game.lastChancellor ||
+                                            (game.players.filter((p) => p.alive)
+                                              .length > 5 &&
+                                              p.id === game.lastPresident)
+                                          ? 'Term-limited'
+                                          : 'In the chamber'}
                       </span>
                     </div>
                     {eligible || targetPower ? (
@@ -1168,25 +1303,6 @@ export default function GameTable() {
           <button onClick={() => setPrivacy(true)}>Fair play & credits</button>
         </span>
       </footer>
-
-      {game && (
-        <nav className="mobile-nav" aria-label="Table sections">
-          {[
-            { id: 'table', icon: <Flag />, text: 'Table' },
-            { id: 'players', icon: <Users />, text: 'Players' },
-            { id: 'chat', icon: <MessageCircle />, text: 'Chat & role' },
-          ].map((item) => (
-            <button
-              key={item.id}
-              aria-current={mobilePanel === item.id ? 'page' : undefined}
-              onClick={() => setMobilePanel(item.id)}
-            >
-              {item.icon}
-              {item.text}
-            </button>
-          ))}
-        </nav>
-      )}
 
       <Dialog open={rules} onOpenChange={setRules}>
         <DialogContent className="guide-dialog paper">
@@ -1303,6 +1419,10 @@ export default function GameTable() {
             </DialogDescription>
           </DialogHeader>
           <div className="guide-content">
+            <FairPlayProof
+              key={game?.fairness?.id ?? 'no-proof'}
+              proof={game?.fairness ?? null}
+            />
             <p>
               Roles, shuffling, policies, ballots, and legal moves are
               controlled by the server. Your device receives only your own
@@ -1619,6 +1739,7 @@ function ActionPanel({
   busy,
   act,
   choose,
+  onPlayers,
 }: {
   game: View;
   busy: boolean;
@@ -1628,6 +1749,7 @@ function ActionPanel({
     title: string;
     description: string;
   }) => void;
+  onPlayers: () => void;
 }) {
   const me = game.players.find((p) => p.id === game.me.id)!;
   const president = game.players.find((p) => p.id === game.president);
@@ -1648,7 +1770,7 @@ function ActionPanel({
       ? 'President, choose your chancellor.'
       : `${president?.name} is choosing a chancellor.`;
     description = isPresident
-      ? 'Select an eligible player in the assembly below.'
+      ? 'Open Players and select an eligible chancellor.'
       : 'Discuss who you trust while the president considers the next government.';
   } else if (game.phase === 'voting') {
     title = `${president?.name} + ${chancellor?.name}`;
@@ -1700,6 +1822,14 @@ function ActionPanel({
       </p>
       <h2>{title}</h2>
       <p>{description}</p>
+      {me.alive &&
+        isPresident &&
+        (game.phase === 'nomination' ||
+          (game.phase === 'executive' && game.power !== 'peek')) && (
+          <Button className="action-button" onClick={onPlayers}>
+            <Users /> Choose a player <ArrowRight />
+          </Button>
+        )}
       {game.phase === 'voting' && me.alive && (
         <div className="ballots">
           <button
@@ -1820,14 +1950,21 @@ function ActionPanel({
           disabled={busy}
           onClick={() => act({ type: 'rematch' })}
         >
-          Open a rematch <ArrowRight />
+          Open lobby · change players & rematch <ArrowRight />
         </Button>
       )}
+      {game.phase === 'finished' && (
+        <p className="next-match-note">
+          {me.id === game.hostId
+            ? 'Invite more friends or add AI in the lobby, up to 10 players.'
+            : 'Waiting for the host to open the next lobby. You can leave from the top bar.'}
+        </p>
+      )}
       {game.phase !== 'voting' && game.lastVote && (
-        <div className="last-election">
-          <span>
+        <details className="last-election">
+          <summary>
             LAST ELECTION <b>{game.lastVote.passed ? 'PASSED' : 'FAILED'}</b>
-          </span>
+          </summary>
           <div>
             {game.players
               .filter((p) => p.id in game.lastVote!.votes)
@@ -1843,7 +1980,7 @@ function ActionPanel({
                 </span>
               ))}
           </div>
-        </div>
+        </details>
       )}
     </div>
   );

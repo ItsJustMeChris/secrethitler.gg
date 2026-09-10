@@ -11,6 +11,7 @@ import {
 } from './game';
 import type { Action, Game } from './game';
 import { authorizeTick, tickBots } from './bots';
+import { createFairness } from './fairness';
 
 const WEEK = 7 * 86400_000;
 const COOKIE = 'sh_session';
@@ -175,6 +176,11 @@ async function readRoom(code: string) {
   return { game: JSON.parse(row.state) as Game, revision: row.revision };
 }
 async function projected(game: Game, id: string) {
+  if (game.players.find((p) => p.id === id)?.departed)
+    throw new HttpError(
+      'Your seat is reserved. Join this room again to return.',
+      401,
+    );
   const view = viewFor(game, id);
   const ids = game.players.map((p) => p.id);
   const seen = await database()
@@ -188,10 +194,11 @@ async function projected(game: Game, id: string) {
     players: view.players.map((p) => ({
       ...p,
       connected:
-        p.bot ||
-        seen.results.some(
-          (s) => s.id === p.id && s.last_seen > Date.now() - 45_000,
-        ),
+        !p.departed &&
+        (p.bot ||
+          seen.results.some(
+            (s) => s.id === p.id && s.last_seen > Date.now() - 45_000,
+          )),
     })),
   };
 }
@@ -202,7 +209,11 @@ async function updateRoom(
   // Compare-and-swap makes all simultaneous moves linearizable across workers.
   for (let attempt = 0; attempt < 12; attempt++) {
     const { game, revision } = await readRoom(code);
+    if (game.phase === 'lobby' && !game.fairness)
+      game.fairness = await createFairness();
     if (mutate(game) === false) return game;
+    if (game.phase === 'lobby' && !game.fairness)
+      game.fairness = await createFairness();
     game.revision = revision + 1;
     game.updatedAt = Date.now();
     const result = await database()
@@ -266,6 +277,7 @@ export async function handle(request: Request) {
             () => alphabet[randomInt(alphabet.length)],
           ).join('');
           const game = newGame(code, session.id, name);
+          game.fairness = await createFairness();
           if (input.operation === 'solo') {
             while (game.players.length < Number(input.seats)) addBot(game);
             game.players[0].ready = true;
@@ -325,6 +337,7 @@ export async function handle(request: Request) {
       if (game.processed.includes(key)) return;
       if (
         action.type !== 'chat' &&
+        action.type !== 'leave' &&
         (input.round !== game.round || input.phase !== game.phase)
       ) {
         throw new HttpError(
@@ -336,7 +349,10 @@ export async function handle(request: Request) {
       game.processed.push(key);
       game.processed = game.processed.slice(-300);
     });
-    if (!game.players.some((p) => p.id === session!.id))
+    if (
+      action.type === 'leave' ||
+      !game.players.some((p) => p.id === session!.id)
+    )
       return json({ left: true }, 200, session.cookie);
     return json(await projected(game, session.id), 200, session.cookie);
   } catch (error) {

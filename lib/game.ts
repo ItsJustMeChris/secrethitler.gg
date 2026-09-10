@@ -1,4 +1,6 @@
 // Pure server-authoritative rules engine. Never send Game directly to a client.
+import { fairnessView, receiptShuffle } from './fairness.ts';
+import type { Fairness, FairnessView, ShuffleEvent } from './fairness.ts';
 export type Policy = 'liberal' | 'fascist';
 export type Role = Policy | 'hitler';
 export type Power = 'investigate' | 'special-election' | 'peek' | 'execute';
@@ -18,6 +20,7 @@ export type Player = {
   ready: boolean;
   role?: Role;
   bot?: boolean;
+  departed?: boolean;
 };
 export type BotMemory = {
   trust: Record<string, number>;
@@ -54,6 +57,8 @@ export type PrivateNote = {
   party?: Policy;
 };
 export type Game = {
+  fairness?: Fairness;
+  previousFairness?: FairnessView | null;
   practice?: Practice;
   code: string;
   hostId: string;
@@ -162,6 +167,7 @@ export function powerTrack(count: number): (Power | null)[] {
 }
 export function newGame(code: string, hostId: string, name: string): Game {
   return {
+    fairness: undefined,
     code,
     hostId,
     players: [{ id: hostId, name, alive: true, ready: false }],
@@ -206,7 +212,12 @@ export function validName(name: unknown): string {
   return clean;
 }
 export function joinGame(game: Game, id: string, name: string) {
-  if (game.players.some((p) => p.id === id)) return;
+  const seated = game.players.find((p) => p.id === id);
+  if (seated) {
+    seated.departed = false;
+    if (!game.hostId) game.hostId = id;
+    return;
+  }
   requireRule(
     game.phase === 'lobby',
     'This game has started. Only seated players can reconnect.',
@@ -292,13 +303,22 @@ function nextLiving(game: Game, after: string) {
 }
 function replenish(game: Game) {
   if (game.deck.length < 3) {
-    game.deck = shuffle([...game.deck, ...game.discard]);
+    game.deck = gameShuffle(game, 'reshuffle', [...game.deck, ...game.discard]);
     game.discard = [];
     log(
       game,
       'The remaining policies and discard pile were shuffled together.',
     );
   }
+}
+function gameShuffle<T extends string>(
+  game: Game,
+  kind: ShuffleEvent['kind'],
+  items: T[],
+): T[] {
+  return game.fairness
+    ? receiptShuffle(game.fairness, kind, game.round, items)
+    : shuffle(items);
 }
 function finish(game: Game, winner: Policy, reason: string) {
   game.phase = 'finished';
@@ -359,6 +379,10 @@ function addNote(game: Game, id: string, note: PrivateNote) {
 export function applyAction(game: Game, actorId: string, action: Action) {
   const actor = game.players.find((p) => p.id === actorId);
   requireRule(actor, 'You are not seated at this table.');
+  requireRule(
+    !actor.departed || action.type === 'leave',
+    'Rejoin your reserved seat before playing.',
+  );
   if (action.type === 'add-bot' || action.type === 'fill-bots') {
     requireRule(actorId === game.hostId, 'Only the host can add AI players.');
     addBot(game);
@@ -421,13 +445,15 @@ export function applyAction(game: Game, actorId: string, action: Action) {
       game.phase === 'finished' && actorId === game.hostId,
       'Only the host can open a rematch after the game.',
     );
-    const players = game.players.map((p) => ({
-      id: p.id,
-      name: p.name,
-      alive: true,
-      ready: !!p.bot,
-      ...(p.bot ? { bot: true } : {}),
-    }));
+    const players = game.players
+      .filter((p) => !p.departed)
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        alive: true,
+        ready: !!p.bot,
+        ...(p.bot ? { bot: true } : {}),
+      }));
     const practice = game.practice
       ? {
           ...game.practice,
@@ -439,7 +465,10 @@ export function applyAction(game: Game, actorId: string, action: Action) {
         }
       : undefined;
     const fresh = newGame(game.code, game.hostId, actor.name);
+    const previousFairness =
+      fairnessView(game.fairness, true) ?? game.previousFairness;
     Object.assign(game, fresh, {
+      previousFairness,
       players,
       revision: game.revision,
       processed: game.processed,
@@ -450,8 +479,8 @@ export function applyAction(game: Game, actorId: string, action: Action) {
   }
   if (action.type === 'leave' || action.type === 'kick') {
     requireRule(
-      game.phase === 'lobby',
-      'Seats can only be removed before the game starts.',
+      action.type === 'leave' || game.phase === 'lobby',
+      'Players can only be removed by the host in the lobby.',
     );
     const target = action.type === 'leave' ? actorId : action.target;
     if (action.type === 'kick')
@@ -463,9 +492,19 @@ export function applyAction(game: Game, actorId: string, action: Action) {
       game.players.some((p) => p.id === target),
       'Player not found.',
     );
-    game.players = game.players.filter((p) => p.id !== target);
+    if (game.phase === 'lobby' || game.phase === 'finished') {
+      game.players = game.players.filter((p) => p.id !== target);
+      if (game.phase === 'lobby')
+        for (const p of game.players) if (!p.bot) p.ready = false;
+    } else {
+      actor.departed = true;
+      log(
+        game,
+        `${actor.name} left the table. Their seat is reserved until this match ends.`,
+      );
+    }
     if (game.hostId === target)
-      game.hostId = game.players.find((p) => !p.bot)?.id ?? '';
+      game.hostId = game.players.find((p) => !p.bot && !p.departed)?.id ?? '';
     if (!game.players.some((p) => p.bot)) delete game.practice;
     return;
   }
@@ -485,7 +524,7 @@ export function applyAction(game: Game, actorId: string, action: Action) {
       game.players.every((p) => p.ready),
       'Every player must be ready.',
     );
-    const deck: Role[] = shuffle([
+    const deck: Role[] = gameShuffle(game, 'roles', [
       ...Array(roles.liberal).fill('liberal'),
       ...Array(roles.fascist).fill('fascist'),
       'hitler',
@@ -495,11 +534,21 @@ export function applyAction(game: Game, actorId: string, action: Action) {
       p.alive = true;
     });
     game.initialCount = count;
-    game.deck = shuffle([
+    game.deck = gameShuffle(game, 'policies', [
       ...Array(6).fill('liberal'),
       ...Array(11).fill('fascist'),
     ]);
-    game.president = game.players[randomInt(count)].id;
+    game.president = gameShuffle(
+      game,
+      'president',
+      game.players.map((p) => p.id),
+    )[0];
+    if (game.fairness)
+      game.fairness.seats = game.players.map((p) => ({
+        id: p.id,
+        name: p.name,
+        role: p.role!,
+      }));
     log(
       game,
       `${count} players were dealt their secret roles. The first president was chosen at random.`,
@@ -725,6 +774,8 @@ export function viewFor(game: Game, viewerId: string) {
       game.chancellor === viewerId);
   return {
     code: game.code,
+    fairness: fairnessView(game.fairness, game.phase === 'finished'),
+    previousFairness: game.previousFairness ?? null,
     hostId: game.hostId,
     phase: game.phase,
     round: game.round,
@@ -738,6 +789,7 @@ export function viewFor(game: Game, viewerId: string) {
       alive: p.alive,
       ready: p.ready,
       bot: !!p.bot,
+      departed: !!p.departed,
       ...(game.phase === 'finished' ? { role: p.role } : {}),
     })),
     president: game.president,
