@@ -143,6 +143,7 @@ export default function GameTable() {
   const dismissNotice = useCallback(() => setError(''), []);
   const [online, setOnline] = useState(true);
   const [rules, setRules] = useState(false);
+  const fieldGuideRef = useRef<HTMLDivElement>(null);
   const [privacy, setPrivacy] = useState(false);
   const [dossier, updateDossier] = useReducer(dossierReducer, closedDossier);
   const roleOpen = dossier.open;
@@ -1720,7 +1721,16 @@ export default function GameTable() {
       </footer>
 
       <Dialog open={rules} onOpenChange={setRules}>
-        <DialogContent className="guide-dialog paper">
+        <DialogContent
+          ref={fieldGuideRef}
+          className="guide-dialog paper"
+          initialFocus={() => {
+            const guide = fieldGuideRef.current;
+            // Focusing the first FAQ scrolls past the introduction on small screens.
+            if (guide) guide.scrollTop = 0;
+            return guide;
+          }}
+        >
           <DialogHeader>
             <p className="eyebrow">THE FIELD GUIDE</p>
             <DialogTitle>Know the rules. Question everyone.</DialogTitle>
