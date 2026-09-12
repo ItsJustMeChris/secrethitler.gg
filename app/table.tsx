@@ -135,6 +135,7 @@ export default function GameTable() {
   const [busy, setBusy] = useState(false);
   const [restoring, setRestoring] = useState(true);
   const [error, setError] = useState('');
+  const dismissNotice = useCallback(() => setError(''), []);
   const [online, setOnline] = useState(true);
   const [rules, setRules] = useState(false);
   const [privacy, setPrivacy] = useState(false);
@@ -143,6 +144,10 @@ export default function GameTable() {
   const [seatOpen, setSeatOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const chatOpenRef = useRef(false);
+  const [desktopChat, setDesktopChat] = useState(false);
+  const desktopChatRef = useRef(false);
+  const [chatTab, setChatTab] = useState('chat');
+  const chatTabRef = useRef('chat');
   const [chatDraft, setChatDraft] = useState('');
   const [lastReadMessage, setLastReadMessage] = useState('');
   const rosterRef = useRef<HTMLElement>(null);
@@ -158,7 +163,14 @@ export default function GameTable() {
   const changeChatOpen = (open: boolean) => {
     chatOpenRef.current = open;
     setChatOpen(open);
-    if (open) setLastReadMessage(gameRef.current?.messages.at(-1)?.id ?? '');
+    if (open && chatTabRef.current === 'chat')
+      setLastReadMessage(gameRef.current?.messages.at(-1)?.id ?? '');
+  };
+  const changeChatTab = (tab: string) => {
+    chatTabRef.current = tab;
+    setChatTab(tab);
+    if (tab === 'chat')
+      setLastReadMessage(gameRef.current?.messages.at(-1)?.id ?? '');
   };
   const accept = useCallback(
     (next: View) => {
@@ -180,9 +192,14 @@ export default function GameTable() {
         chatOpenRef.current = false;
         setChatOpen(false);
         setChatDraft('');
+        chatTabRef.current = 'chat';
+        setChatTab('chat');
         setLastReadMessage(next.messages.at(-1)?.id ?? '');
       }
-      if (chatOpenRef.current)
+      if (
+        (chatOpenRef.current || desktopChatRef.current) &&
+        chatTabRef.current === 'chat'
+      )
         setLastReadMessage(next.messages.at(-1)?.id ?? '');
       gameRef.current = next;
       setGame(next);
@@ -253,6 +270,24 @@ export default function GameTable() {
       active = false;
     };
   }, [accept]);
+
+  useEffect(() => {
+    // Keep this breakpoint aligned with .desktop-chat-layout in game.css.
+    const media = window.matchMedia('(min-width: 1280px)');
+    const changed = () => {
+      desktopChatRef.current = media.matches;
+      setDesktopChat(media.matches);
+      if (media.matches) {
+        chatOpenRef.current = false;
+        setChatOpen(false);
+        if (chatTabRef.current === 'chat')
+          setLastReadMessage(gameRef.current?.messages.at(-1)?.id ?? '');
+      }
+    };
+    changed();
+    media.addEventListener('change', changed);
+    return () => media.removeEventListener('change', changed);
+  }, []);
 
   useEffect(() => {
     const changed = () => setFullScreen(!!document.fullscreenElement);
@@ -491,7 +526,7 @@ export default function GameTable() {
   const me = game?.players.find((p) => p.id === game.me.id);
   const inGame = game && game.phase !== 'lobby';
   const unreadChat =
-    !chatOpen && game
+    (!(chatOpen || desktopChat) || chatTab !== 'chat') && game
       ? game.messages
           .slice(game.messages.findIndex((m) => m.id === lastReadMessage) + 1)
           .filter((m) => m.playerId !== game.me.id).length
@@ -580,7 +615,7 @@ export default function GameTable() {
       </header>
 
       <main
-        className={`workspace ${game ? `has-room ${game.phase}` : 'start-screen'} ${seatOpen ? 'seat-open' : ''}`}
+        className={`workspace ${game ? `has-room ${game.phase}` : 'start-screen'} ${game && desktopChat ? 'desktop-chat-layout' : ''} ${seatOpen ? 'seat-open' : ''}`}
       >
         <div className="workspace-heading">
           <div>
@@ -643,13 +678,11 @@ export default function GameTable() {
           )}
         </div>
         {error && (
-          <div className="notice error" role="alert">
-            <HelpCircle />
-            <span>{error}</span>
-            <button aria-label="Dismiss error" onClick={() => setError('')}>
-              <X size={18} />
-            </button>
-          </div>
+          <TransientNotice
+            key={error}
+            message={error}
+            onDismiss={dismissNotice}
+          />
         )}
         {!online && game && (
           <output className="notice">
@@ -1277,9 +1310,27 @@ export default function GameTable() {
             </div>
           </section>
         )}
+        {game && desktopChat && (
+          <aside className="desktop-chat paper" aria-label="Table conversation">
+            <div className="desktop-chat-heading">
+              <h2>Table conversation</h2>
+              <MessageCircle size={17} aria-hidden="true" />
+            </div>
+            <Conversation
+              game={game}
+              act={act}
+              busy={busy || !online}
+              message={chatDraft}
+              setMessage={setChatDraft}
+              tab={chatTab}
+              setTab={changeChatTab}
+              unread={unreadChat}
+            />
+          </aside>
+        )}
       </main>
 
-      {game && (
+      {game && !desktopChat && (
         <Popover open={chatOpen} onOpenChange={changeChatOpen} modal={false}>
           <PopoverTrigger render={<Button className="chat-launcher" />}>
             <MessageCircle /> Chat{' '}
@@ -1315,6 +1366,9 @@ export default function GameTable() {
               busy={busy || !online}
               message={chatDraft}
               setMessage={setChatDraft}
+              tab={chatTab}
+              setTab={changeChatTab}
+              unread={unreadChat}
             />
           </PopoverContent>
         </Popover>
@@ -2175,20 +2229,61 @@ function ActionPanel({
   );
 }
 
+function TransientNotice({
+  message,
+  onDismiss,
+}: {
+  message: string;
+  onDismiss: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  useEffect(() => {
+    if (hovered || focused) return;
+    const timer = window.setTimeout(onDismiss, 8_000);
+    return () => window.clearTimeout(timer);
+  }, [message, onDismiss, hovered, focused]);
+  return (
+    // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Hover and focus only pause the notice timer; dismissal remains a button.
+    <div
+      className="notice error"
+      role="alert"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocusCapture={() => setFocused(true)}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget))
+          setFocused(false);
+      }}
+    >
+      <HelpCircle />
+      <span>{message}</span>
+      <button aria-label="Dismiss notice" onClick={onDismiss}>
+        <X size={18} />
+      </button>
+    </div>
+  );
+}
+
 function Conversation({
   game,
   act,
   busy,
   message,
   setMessage,
+  tab,
+  setTab,
+  unread,
 }: {
   game: View;
   act: (action: Action) => Promise<boolean>;
   busy: boolean;
   message: string;
   setMessage: (value: string) => void;
+  tab: string;
+  setTab: (value: string) => void;
+  unread: number;
 }) {
-  const [tab, setTab] = useState('chat');
   const scrollRef = useRef<HTMLDivElement>(null);
   const me = game.players.find((p) => p.id === game.me.id)!;
   const muted =
@@ -2207,6 +2302,14 @@ function Conversation({
         <TabsList className="conversation-tabs">
           <TabsTrigger value="chat">
             <MessageCircle /> Table talk
+            {unread > 0 && (
+              <span
+                className="chat-unread"
+                aria-label={`${unread} unread messages`}
+              >
+                {unread > 99 ? '99+' : unread}
+              </span>
+            )}
           </TabsTrigger>
           <TabsTrigger value="log">
             <FileText /> Game log
