@@ -22,5 +22,5 @@ export function isPortrait(value: unknown): value is number {
   );
 }
 export function portraitUrl(id: number) {
-  return `/assets/portraits/original-portrait-${String(isPortrait(id) ? id : 1).padStart(2, '0')}.png`;
+  return `/assets/portraits/illustrated-portrait-${String(isPortrait(id) ? id : 1).padStart(2, '0')}.png`;
 }

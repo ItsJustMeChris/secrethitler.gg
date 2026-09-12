@@ -23,11 +23,21 @@ The included `docs/asset-manifest.json` records each copied file's exact source 
 
 ## Original player portraits
 
-The 12 selectable player pictures in `public/assets/portraits/` were generated specifically for this app on 2026-09-10 using the built-in image-generation tool. Each was created independently from a text prompt with no reference images. They are not copied or adapted from Secret Hitler Online's player pictures. The portraits are cosmetic and carry no role information.
+The 12 selectable player pictures in `public/assets/portraits/illustrated-portrait-*.png` were generated specifically for this app on 2026-09-11 using the built-in image-generation tool. They use original fictional characters with angular ink outlines, simplified faces, and flat cream, ochre, terracotta, and teal fills inspired by Secret Hitler's printed illustration style. They are not copied from Secret Hitler Online's player pictures. The portraits are cosmetic and carry no role information.
 
-The collection uses charcoal and ivory ink illustration on deep teal. All 1254 × 1254 originals were reduced proportionally to 256 × 256 PNGs for the app, preserving the entire image with no cropping, zoom, gamma adjustment, or recoloring. UI images use `object-fit: contain`. Total download size for the twelve portraits is approximately 1.39 MB.
+Every image has a genuine alpha channel and transparent surroundings. The generated originals were proportionally resized and padded to consistent squares, then downsampled to 256 × 256 PNGs for the app. The entire silhouette is retained without cropping, background removal, color filters, or gamma adjustment. UI images use `object-fit: contain`. Selection borders and seat surfaces belong to the interface, not the PNGs.
 
-The [full generation prompts and final paths](original-portrait-prompts.json) and [asset manifest](asset-manifest.json) document every portrait. IDs 01–12 are The Archivist, The Courier, The Musician, The Astronomer, The Poet, The Mechanic, The Gardener, The Detective, The Tailor, The Painter, The Captain, and The Night Owl.
+The [full generation prompts and final paths](illustrated-portrait-prompts.json) and [asset manifest](asset-manifest.json) document every portrait. IDs 01–12 remain The Archivist, The Courier, The Musician, The Astronomer, The Poet, The Mechanic, The Gardener, The Detective, The Tailor, The Painter, The Captain, and The Night Owl. Existing players retain their chosen character. New filenames refresh previously cached avatars. `original-portrait-prompts.json` is the historical prompt record for the superseded teal-background set.
+
+## Interface typography and palette
+
+The interface takes its apricot `#FBB969`, charcoal `#434343`, coral `#F0654B`, paper surfaces, typewriter text, and bold geometric headings from the [official website](https://www.secrethitler.com/) and its [stylesheet](https://www.secrethitler.com/stylesheets/secret.css), checked 2026-09-11. These cues are adapted to the existing compact game layout; the website's layout and stylesheet are not copied.
+
+The official site specifies Futura PT for headings and Courier Prime for text, delivered through Adobe Typekit. This app self-hosts Courier Prime and the open-source geometric typeface Jost as its Futura-style heading and control face. It does not reuse the official site's Adobe font kit or redistribute Futura PT.
+
+- Courier Prime: [Google Fonts source](https://github.com/google/fonts/tree/main/ofl/courierprime), regular and bold, SIL Open Font License 1.1. License bundled at `public/fonts/Courier-Prime-OFL.txt`.
+- Jost: [Google Fonts source](https://github.com/google/fonts/tree/main/ofl/jost), variable upright font, SIL Open Font License 1.1. License bundled at `public/fonts/Jost-OFL.txt`.
+- Fonts load locally as WOFF2 with `font-display: swap`; controls use the compact geometric face, and body copy uses Courier Prime. The [font manifest](font-manifest.json) records the seven subset sources and file sizes (about 115 KiB total; only required subsets load). The primary Latin heading and body faces are preloaded. Assets retain their original colors.
 
 ## Supporting official sources
 
