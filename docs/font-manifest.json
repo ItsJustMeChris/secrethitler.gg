@@ -1,0 +1,62 @@
+{
+  "source": "https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Jost:wght@400..800&display=swap",
+  "license": "SIL Open Font License 1.1",
+  "files": [
+    {
+      "family": "Courier Prime",
+      "weight": "400",
+      "subset": "latin-ext",
+      "source": "https://fonts.gstatic.com/s/courierprime/v11/u-450q2lgwslOqpF_6gQ8kELaw9pWt_-.woff2",
+      "path": "public/fonts/courier-prime-400-latin-ext.woff2",
+      "bytes": 12736
+    },
+    {
+      "family": "Courier Prime",
+      "weight": "400",
+      "subset": "latin",
+      "source": "https://fonts.gstatic.com/s/courierprime/v11/u-450q2lgwslOqpF_6gQ8kELawFpWg.woff2",
+      "path": "public/fonts/courier-prime-400-latin.woff2",
+      "bytes": 18640
+    },
+    {
+      "family": "Courier Prime",
+      "weight": "700",
+      "subset": "latin-ext",
+      "source": "https://fonts.gstatic.com/s/courierprime/v11/u-4k0q2lgwslOqpF_6gQ8kELY7pMT-7fq8Ho.woff2",
+      "path": "public/fonts/courier-prime-700-latin-ext.woff2",
+      "bytes": 12928
+    },
+    {
+      "family": "Courier Prime",
+      "weight": "700",
+      "subset": "latin",
+      "source": "https://fonts.gstatic.com/s/courierprime/v11/u-4k0q2lgwslOqpF_6gQ8kELY7pMT-Dfqw.woff2",
+      "path": "public/fonts/courier-prime-700-latin.woff2",
+      "bytes": 19348
+    },
+    {
+      "family": "Jost",
+      "weight": "400 800",
+      "subset": "cyrillic",
+      "source": "https://fonts.gstatic.com/s/jost/v20/92zatBhPNqw73oDd4iYl.woff2",
+      "path": "public/fonts/jost-400-800-cyrillic.woff2",
+      "bytes": 10140
+    },
+    {
+      "family": "Jost",
+      "weight": "400 800",
+      "subset": "latin-ext",
+      "source": "https://fonts.gstatic.com/s/jost/v20/92zatBhPNqw73ord4iYl.woff2",
+      "path": "public/fonts/jost-400-800-latin-ext.woff2",
+      "bytes": 17104
+    },
+    {
+      "family": "Jost",
+      "weight": "400 800",
+      "subset": "latin",
+      "source": "https://fonts.gstatic.com/s/jost/v20/92zatBhPNqw73oTd4g.woff2",
+      "path": "public/fonts/jost-400-800-latin.woff2",
+      "bytes": 26576
+    }
+  ]
+}

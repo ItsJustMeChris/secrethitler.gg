@@ -27,7 +27,7 @@ void test('only catalog portraits are accepted, with a legacy default and safe l
     assert.equal(validPortrait(item.id), item.id);
     assert.match(
       portraitUrl(item.id),
-      /^\/assets\/portraits\/original-portrait-\d{2}\.png$/,
+      /^\/assets\/portraits\/illustrated-portrait-\d{2}\.png$/,
     );
   }
   for (const value of [

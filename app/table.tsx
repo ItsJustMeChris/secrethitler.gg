@@ -1793,6 +1793,17 @@ export default function GameTable() {
               </a>
               , for noncommercial use.
             </p>
+            <p>
+              Typography and colors draw on the{' '}
+              <a
+                href="https://www.secrethitler.com/"
+                target="_blank"
+                rel="noreferrer"
+              >
+                official Secret Hitler website
+              </a>
+              . Courier Prime and Jost are used under the SIL Open Font License.
+            </p>
           </div>
         </DialogContent>
       </Dialog>
