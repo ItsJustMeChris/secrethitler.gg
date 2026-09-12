@@ -102,7 +102,7 @@ const savedCommitment = game.fairness.commitment;
 assert.equal(game.fairness.reveal, null);
 assert.equal(game.players[0].portrait, 12);
 await friend.request(
-  { operation: 'join', code, name: 'AI test friend', portrait: 13 },
+  { operation: 'join', code, name: 'AI test friend', portrait: 31 },
   null,
   400,
 );
@@ -110,10 +110,10 @@ await friend.request({
   operation: 'join',
   code,
   name: 'AI test friend',
-  portrait: 8,
+  portrait: 30,
 });
 game = await host.request(null, code);
-assert.equal(game.players.find((p) => p.id === friend.id).portrait, 8);
+assert.equal(game.players.find((p) => p.id === friend.id).portrait, 30);
 await friend.action(game, { type: 'portrait', portrait: 0 }, 400);
 await friend.action(game, { type: 'portrait', portrait: 11 });
 game = await host.request(null, code);
