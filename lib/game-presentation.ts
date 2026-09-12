@@ -8,6 +8,27 @@ export type TableCue = {
   party?: Policy;
 };
 
+export function playerOffice(game: GameView, playerId: string) {
+  if (
+    ['lobby', 'finished'].includes(game.phase) ||
+    !game.players.find((player) => player.id === playerId)?.alive
+  )
+    return null;
+  if (game.president === playerId)
+    return {
+      kind: 'president',
+      label: 'President',
+      shortLabel: 'Pres.',
+    } as const;
+  if (game.chancellor === playerId)
+    return {
+      kind: 'chancellor',
+      label: 'Chancellor',
+      shortLabel: 'Chanc.',
+    } as const;
+  return null;
+}
+
 export function isYourTurn(game: GameView): boolean {
   if (!game.players.find((p) => p.id === game.me.id)?.alive) return false;
   if (game.phase === 'voting') return game.me.ballot === null;

@@ -3,9 +3,12 @@ import assert from 'node:assert/strict';
 import { newGame, joinGame, applyAction, viewFor } from '../lib/game.ts';
 import {
   isYourTurn,
+  playerOffice,
   playerSelection,
   tableCue,
 } from '../lib/game-presentation.ts';
+import { closedDossier, dossierReducer } from '../lib/dossier.ts';
+import { createFairness } from '../lib/fairness.ts';
 
 function fixture(count = 7) {
   const game = newGame('ABCDEFGH', 'p0', 'Player 0');
@@ -17,6 +20,160 @@ function fixture(count = 7) {
   game.president = 'p0';
   return { game, lobby, view: viewFor(game, 'p0') };
 }
+
+void test('offices follow nominations and rotation for all viewers, independent of their secret role', () => {
+  const { game } = fixture();
+  assert.equal(playerOffice(viewFor(game, 'p1'), 'p0')?.kind, 'president');
+  assert.equal(playerOffice(viewFor(game, 'p1'), 'p1'), null);
+  applyAction(game, 'p0', { type: 'nominate', target: 'p1' });
+  for (const viewer of game.players) {
+    const view = viewFor(game, viewer.id);
+    assert.equal(playerOffice(view, 'p0')?.label, 'President');
+    assert.equal(playerOffice(view, 'p1')?.label, 'Chancellor');
+    assert.equal(playerOffice(view, 'p2'), null);
+  }
+  for (const voter of game.players)
+    applyAction(game, voter.id, { type: 'vote', yes: false });
+  const next = viewFor(game, 'p0');
+  assert.equal(playerOffice(next, 'p0'), null);
+  assert.equal(playerOffice(next, 'p1')?.kind, 'president');
+  for (const phase of ['lobby', 'finished'] as const)
+    assert.equal(playerOffice({ ...next, phase }, 'p1'), null);
+  game.players[1].alive = false;
+  assert.equal(playerOffice(viewFor(game, 'p0'), 'p1'), null);
+});
+
+void test('every seated player gets the opening dossier at every table size, including restoration midgame', () => {
+  for (let count = 5; count <= 10; count++) {
+    const { game, lobby } = fixture(count);
+    for (const player of game.players) {
+      const waiting = dossierReducer(closedDossier, {
+        type: 'receive',
+        game: lobby,
+        visible: true,
+      });
+      assert.equal(waiting.open, false);
+      const event = {
+        type: 'receive' as const,
+        game: viewFor(game, player.id),
+        visible: true,
+      };
+      const dealt = dossierReducer(waiting, event);
+      assert.equal(dealt.open, true, `${count} players, ${player.id}`);
+      assert.equal(dealt.pending, true);
+      assert.equal(dossierReducer(dealt, { type: 'expire' }).open, true);
+      const closed = dossierReducer(dealt, { type: 'dismiss' });
+      assert.equal(
+        dossierReducer(closed, event).open,
+        false,
+        'polling must not undo dismissal',
+      );
+      assert.equal(dossierReducer(closed, { type: 'resume' }).open, false);
+      assert.equal(
+        dossierReducer(closedDossier, event).open,
+        true,
+        'restoration must reveal the role',
+      );
+    }
+  }
+});
+
+void test('a backgrounded opening reveal resumes until acknowledged; manual peeks still hide and expire', () => {
+  const { view } = fixture();
+  let state = dossierReducer(closedDossier, {
+    type: 'receive',
+    game: view,
+    visible: false,
+  });
+  assert.equal(state.open, false);
+  assert.equal(state.pending, true);
+  state = dossierReducer(state, { type: 'resume' });
+  assert.equal(state.open, true);
+  state = dossierReducer(state, { type: 'hide' });
+  assert.equal(state.open, false);
+  state = dossierReducer(state, {
+    type: 'receive',
+    game: { ...view, revision: 2 },
+    visible: false,
+  });
+  state = dossierReducer(state, { type: 'resume' });
+  assert.equal(state.open, true);
+  state = dossierReducer(state, { type: 'dismiss' });
+  state = dossierReducer(state, { type: 'open' });
+  assert.equal(state.open, true);
+  assert.equal(state.pending, false);
+  assert.equal(dossierReducer(state, { type: 'expire' }).open, false);
+  state = dossierReducer(state, { type: 'hide' });
+  assert.equal(dossierReducer(state, { type: 'resume' }).open, false);
+});
+
+void test('rematches reveal even when the same role is dealt and the client missed the lobby', async () => {
+  const { game } = fixture();
+  game.fairness = await createFairness();
+  let state = dossierReducer(closedDossier, {
+    type: 'receive',
+    game: viewFor(game, 'p0'),
+    visible: true,
+  });
+  state = dossierReducer(state, { type: 'dismiss' });
+  const oldMatch = state.match;
+  game.fairness = await createFairness();
+  state = dossierReducer(state, {
+    type: 'receive',
+    game: viewFor(game, 'p0'),
+    visible: true,
+  });
+  assert.notEqual(state.match, oldMatch);
+  assert.equal(state.open, true);
+  assert.equal(
+    dossierReducer(state, { type: 'expire' }).open,
+    true,
+    'a stale timeout cannot close a new reveal',
+  );
+});
+
+void test('lobby, finished games and leaving clear pending reveals without breaking manual endgame dossiers', () => {
+  const { view, lobby } = fixture();
+  const dealt = dossierReducer(closedDossier, {
+    type: 'receive',
+    game: view,
+    visible: true,
+  });
+  const waiting = dossierReducer(dealt, {
+    type: 'receive',
+    game: lobby,
+    visible: true,
+  });
+  assert.equal(waiting.open, false);
+  assert.equal(
+    dossierReducer(waiting, { type: 'receive', game: view, visible: true })
+      .open,
+    true,
+  );
+  const finished = { ...view, phase: 'finished' as const };
+  const ended = dossierReducer(dealt, {
+    type: 'receive',
+    game: finished,
+    visible: true,
+  });
+  assert.equal(ended.open, false);
+  assert.equal(ended.pending, false);
+  assert.equal(
+    dossierReducer(closedDossier, {
+      type: 'receive',
+      game: finished,
+      visible: true,
+    }).open,
+    false,
+  );
+  const manual = dossierReducer(ended, { type: 'open' });
+  assert.equal(
+    dossierReducer(manual, { type: 'receive', game: finished, visible: true })
+      .open,
+    true,
+  );
+  assert.deepEqual(dossierReducer(dealt, { type: 'reset' }), closedDossier);
+});
 
 void test('floor nomination choices agree with authoritative eligibility at every table size and living-player threshold', () => {
   for (let count = 5; count <= 10; count++) {

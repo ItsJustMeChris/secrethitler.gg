@@ -1,9 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { PolicyBoard, PolicyCard, asset } from './game-board';
 import { useGameFeedback } from './game-feedback';
-import { isYourTurn, playerSelection } from '@/lib/game-presentation';
+import {
+  isYourTurn,
+  playerOffice,
+  playerSelection,
+} from '@/lib/game-presentation';
+import { closedDossier, dossierReducer } from '@/lib/dossier';
 import {
   Settings2,
   Volume2,
@@ -139,7 +144,8 @@ export default function GameTable() {
   const [online, setOnline] = useState(true);
   const [rules, setRules] = useState(false);
   const [privacy, setPrivacy] = useState(false);
-  const [roleOpen, setRoleOpen] = useState(false);
+  const [dossier, updateDossier] = useReducer(dossierReducer, closedDossier);
+  const roleOpen = dossier.open;
   const [copied, setCopied] = useState(false);
   const [seatOpen, setSeatOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -182,16 +188,31 @@ export default function GameTable() {
       receiveFeedback(current, next);
       rememberFairness(next.previousFairness, 'finished');
       rememberFairness(next.fairness, next.phase);
-      if (
+      const tableChanged =
         current?.code !== next.code ||
         current?.me.id !== next.me.id ||
         current?.fairness?.id !== next.fairness?.id ||
-        (current.phase !== 'lobby' && next.phase === 'lobby')
-      ) {
+        (current.phase !== 'lobby' && next.phase === 'lobby');
+      if (tableChanged) {
         setSeatOpen(false);
-        setRoleOpen(false);
         setChoice(null);
         setPrivateResult(null);
+      }
+      updateDossier({
+        type: 'receive',
+        game: next,
+        visible: !document.hidden && document.hasFocus(),
+      });
+      if (
+        next.me.role &&
+        !['lobby', 'finished'].includes(next.phase) &&
+        (tableChanged || !current?.me.role)
+      ) {
+        setSettingsOpen(false);
+        setRules(false);
+        setPrivacy(false);
+        chatOpenRef.current = false;
+        setChatOpen(false);
       }
       if (current?.code !== next.code) {
         chatOpenRef.current = false;
@@ -224,7 +245,7 @@ export default function GameTable() {
     setGame(null);
     localStorage.removeItem('sh-room');
     history.replaceState(null, '', '/');
-    setRoleOpen(false);
+    updateDossier({ type: 'reset' });
     setReadAloud(false);
     setChoice(null);
     setSeatOpen(false);
@@ -337,6 +358,7 @@ export default function GameTable() {
             setError((e as Error).message);
             gameRef.current = null;
             setGame(null);
+            updateDossier({ type: 'reset' });
             localStorage.removeItem('sh-room');
             return;
           }
@@ -356,17 +378,27 @@ export default function GameTable() {
   }, [game?.code, accept]);
 
   useEffect(() => {
-    if (!roleOpen) return;
-    const hide = () => setRoleOpen(false);
-    const timeout = setTimeout(hide, 30_000);
-    window.addEventListener('blur', hide);
-    document.addEventListener('visibilitychange', hide);
-    return () => {
-      clearTimeout(timeout);
-      window.removeEventListener('blur', hide);
-      document.removeEventListener('visibilitychange', hide);
+    const hide = () => updateDossier({ type: 'hide' });
+    const resume = () => {
+      if (!document.hidden && document.hasFocus())
+        updateDossier({ type: 'resume' });
     };
-  }, [roleOpen]);
+    const visibility = () => (document.hidden ? hide() : resume());
+    window.addEventListener('blur', hide);
+    window.addEventListener('focus', resume);
+    document.addEventListener('visibilitychange', visibility);
+    return () => {
+      window.removeEventListener('blur', hide);
+      window.removeEventListener('focus', resume);
+      document.removeEventListener('visibilitychange', visibility);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!roleOpen || dossier.pending) return;
+    const timeout = setTimeout(() => updateDossier({ type: 'expire' }), 30_000);
+    return () => clearTimeout(timeout);
+  }, [roleOpen, dossier.pending]);
 
   const latestMessage = game?.messages.at(-1);
   useEffect(() => {
@@ -434,7 +466,6 @@ export default function GameTable() {
       if (operation === 'solo') {
         setCoaching(true);
         localStorage.setItem('sh-coach', 'true');
-        setRoleOpen(true);
       }
     } catch (e) {
       setError((e as Error).message);
@@ -1139,7 +1170,7 @@ export default function GameTable() {
                       <Button
                         variant="outline"
                         className="role-button"
-                        onClick={() => setRoleOpen(true)}
+                        onClick={() => updateDossier({ type: 'open' })}
                       >
                         <Eye /> View secret dossier <LockKeyhole size={15} />
                       </Button>
@@ -1213,12 +1244,13 @@ export default function GameTable() {
             >
               {game.players.map((p, i) => {
                 const knowledge = playerKnowledge(game, p.id);
+                const office = playerOffice(game, p.id);
                 return (
                   <div
                     key={p.id}
-                    className={`player ${!p.alive ? 'eliminated' : ''} ${p.id === game.president ? 'president-player' : ''} ${p.id === game.me.id ? 'self-player' : ''}`}
+                    className={`player ${!p.alive ? 'eliminated' : ''} ${office ? `${office.kind}-player` : ''}`}
                     style={{ animationDelay: `${i * 45}ms` }}
-                    title={`${p.name}${knowledge ? ` · ${knowledge.label}` : ''}`}
+                    title={`${p.name}${office ? ` · ${office.label}${game.phase === 'voting' ? ' nominee' : ''}` : ''}${knowledge ? ` · ${knowledge.label}` : ''}`}
                   >
                     <div className="player-number">
                       <img
@@ -1252,6 +1284,17 @@ export default function GameTable() {
                           </span>
                         )}
                       </b>
+                      {office && (
+                        <span
+                          className="office-label"
+                          aria-label={office.label}
+                        >
+                          <span className="office-full">{office.label}</span>
+                          <span className="office-short" aria-hidden="true">
+                            {office.shortLabel}
+                          </span>
+                        </span>
+                      )}
                       {knowledge && (
                         <strong
                           className={`known-role ${knowledge.kind}`}
@@ -1260,38 +1303,41 @@ export default function GameTable() {
                           {knowledge.label}
                         </strong>
                       )}
-                      <span>
-                        {game.phase === 'finished'
-                          ? p.alive
-                            ? 'Survived'
-                            : 'Executed'
-                          : p.departed
-                            ? 'Away · seat reserved'
-                            : !p.alive
-                              ? 'Executed'
-                              : p.id === game.president
-                                ? 'President'
-                                : p.id === game.chancellor
-                                  ? 'Chancellor'
-                                  : game.phase === 'lobby'
-                                    ? p.ready
-                                      ? 'Ready to play'
-                                      : 'Getting settled'
-                                    : game.phase === 'voting' &&
-                                        game.voted.includes(p.id)
-                                      ? 'Ballot sealed'
-                                      : game.eligible.includes(p.id)
-                                        ? 'Eligible for chancellor'
-                                        : p.id === game.lastChancellor ||
-                                            (game.players.filter((p) => p.alive)
-                                              .length > 5 &&
-                                              p.id === game.lastPresident)
-                                          ? 'Term-limited'
-                                          : 'In the chamber'}
-                      </span>
+                      {(!office ||
+                        p.departed ||
+                        (game.phase === 'voting' &&
+                          game.voted.includes(p.id))) && (
+                        <span>
+                          {game.phase === 'finished'
+                            ? p.alive
+                              ? 'Survived'
+                              : 'Executed'
+                            : p.departed
+                              ? 'Away · seat reserved'
+                              : !p.alive
+                                ? 'Executed'
+                                : game.phase === 'lobby'
+                                  ? p.ready
+                                    ? 'Ready to play'
+                                    : 'Getting settled'
+                                  : game.phase === 'voting' &&
+                                      game.voted.includes(p.id)
+                                    ? 'Ballot sealed'
+                                    : game.eligible.includes(p.id)
+                                      ? 'Eligible for chancellor'
+                                      : p.id === game.lastChancellor ||
+                                          (game.players.filter((p) => p.alive)
+                                            .length > 5 &&
+                                            p.id === game.lastPresident)
+                                        ? 'Term-limited'
+                                        : 'In the chamber'}
+                        </span>
+                      )}
                     </div>
-                    {p.id === game.president ? (
+                    {office?.kind === 'president' ? (
                       <Crown className="player-icon" />
+                    ) : office?.kind === 'chancellor' ? (
+                      <Flag className="player-icon" />
                     ) : !p.alive ? (
                       <Skull className="player-icon" />
                     ) : game.phase === 'lobby' && p.ready ? (
@@ -1621,7 +1667,7 @@ export default function GameTable() {
                   className="primary-button"
                   onClick={() => {
                     setSeatOpen(false);
-                    setRoleOpen(true);
+                    updateDossier({ type: 'open' });
                   }}
                 >
                   <Eye />
@@ -1864,13 +1910,21 @@ export default function GameTable() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={roleOpen} onOpenChange={setRoleOpen}>
+      <Dialog
+        open={roleOpen}
+        onOpenChange={(open) =>
+          updateDossier({ type: open ? 'open' : 'dismiss' })
+        }
+        disablePointerDismissal={dossier.pending}
+      >
         <DialogContent className="dossier-dialog paper">
           <DialogHeader>
             <p className="eyebrow">FOR YOUR EYES ONLY</p>
             <DialogTitle>Your secret dossier</DialogTitle>
             <DialogDescription>
-              Automatically hidden when you switch away, or after 30 seconds.
+              {dossier.pending
+                ? 'Read your role, then close your dossier when you are ready. It stays available if you switch away.'
+                : 'Automatically hidden when you switch away, or after 30 seconds.'}
             </DialogDescription>
           </DialogHeader>
           {roleOpen && game?.me.role && (
@@ -1927,8 +1981,12 @@ export default function GameTable() {
               </div>
             </div>
           )}
-          <Button className="primary-button" onClick={() => setRoleOpen(false)}>
-            <EyeOff /> Close dossier
+          <Button
+            className="primary-button"
+            onClick={() => updateDossier({ type: 'dismiss' })}
+          >
+            <EyeOff />{' '}
+            {dossier.pending ? 'Got it · close dossier' : 'Close dossier'}
           </Button>
         </DialogContent>
       </Dialog>
@@ -2180,7 +2238,24 @@ function ActionPanel({
             : 'ON THE FLOOR'}
       </p>
       {game.phase === 'finished' && <Flag className="victory-mark" size={28} />}
-      <h2>{title}</h2>
+      {game.phase === 'voting' && me.alive ? (
+        <h2 className="government-candidates">
+          <span className="government-candidate president-office">
+            <span className="office-caption">
+              <Crown size={14} /> President
+            </span>
+            {president?.name}
+          </span>
+          <span className="government-candidate chancellor-office">
+            <span className="office-caption">
+              <Flag size={14} /> Chancellor
+            </span>
+            {chancellor?.name}
+          </span>
+        </h2>
+      ) : (
+        <h2>{title}</h2>
+      )}
       <p>{description}</p>
       {selection && (
         <PlayerActionPicker
