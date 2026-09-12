@@ -5,6 +5,9 @@ import { PolicyBoard, PolicyCard, asset } from './game-board';
 import { useGameFeedback } from './game-feedback';
 import {
   isYourTurn,
+  electionResult,
+  legislativeGuidance,
+  policyResult,
   playerOffice,
   playerSelection,
 } from '@/lib/game-presentation';
@@ -70,6 +73,7 @@ import { coachTip } from '@/lib/coach';
 import type { Action, GameView, Power } from '@/lib/game';
 import { FairPlayProof, rememberFairness } from './fair-play';
 import { PortraitPicker } from './portrait-picker';
+import { ElectionRecap, PlayerEvent, PolicyRecap } from './table-events';
 import { PORTRAITS, isPortrait, portraitUrl } from '@/lib/portraits';
 import { playerKnowledge } from '@/lib/player-knowledge';
 
@@ -564,6 +568,8 @@ export default function GameTable() {
   }
   const me = game?.players.find((p) => p.id === game.me.id);
   const inGame = game && game.phase !== 'lobby';
+  const lastElection = game ? electionResult(game) : null;
+  const lastPolicy = game ? policyResult(game) : null;
   const unreadChat =
     (!(chatOpen || desktopChat) || chatTab !== 'chat') && game
       ? game.messages
@@ -773,7 +779,24 @@ export default function GameTable() {
               </span>
             </div>
             {inGame && (
-              <div className="turn-action" key={`${game.round}-${game.phase}`}>
+              <div className="turn-action">
+                {lastPolicy &&
+                  (lastPolicy.round === game.round ||
+                    (game.phase === 'nomination' &&
+                      lastPolicy.round === game.round - 1)) && (
+                    <PolicyRecap
+                      key={lastPolicy.id}
+                      result={lastPolicy}
+                      fresh={feedback.policy?.id === lastPolicy.id}
+                    />
+                  )}
+                {lastElection && game.phase !== 'voting' && (
+                  <ElectionRecap
+                    key={lastElection.id}
+                    result={lastElection}
+                    fresh={feedback.election?.id === lastElection.id}
+                  />
+                )}
                 {privateResult && (
                   <section
                     className="floor-private-result"
@@ -825,6 +848,11 @@ export default function GameTable() {
             <div className="board-surface">
               <PolicyBoard
                 kind="liberal"
+                highlightedCount={
+                  feedback.policy?.kind === 'liberal'
+                    ? feedback.policy.count
+                    : undefined
+                }
                 count={game?.liberal ?? 0}
                 players={
                   game?.initialCount || Math.max(game?.players.length ?? 5, 5)
@@ -832,6 +860,11 @@ export default function GameTable() {
               />
               <PolicyBoard
                 kind="fascist"
+                highlightedCount={
+                  feedback.policy?.kind === 'fascist'
+                    ? feedback.policy.count
+                    : undefined
+                }
                 count={game?.fascist ?? 0}
                 players={
                   game?.initialCount || Math.max(game?.players.length ?? 5, 5)
@@ -868,16 +901,18 @@ export default function GameTable() {
                 </div>
               </div>
             </div>
-            {feedback.cue && (
-              <output
-                className={`table-cue ${feedback.cue.party ?? ''} cue-${feedback.cue.kind}`}
-                key={feedback.cue.id}
-              >
-                <span className="cue-rule" />
-                <b>{feedback.cue.title}</b>
-                <span>{feedback.cue.detail}</span>
-              </output>
-            )}
+            {feedback.cue &&
+              feedback.cue.kind !== 'election' &&
+              !(feedback.cue.kind === 'policy' && feedback.policy) && (
+                <output
+                  className={`table-cue ${feedback.cue.party ?? ''} cue-${feedback.cue.kind}`}
+                  key={feedback.cue.id}
+                >
+                  <span className="cue-rule" />
+                  <b>{feedback.cue.title}</b>
+                  <span>{feedback.cue.detail}</span>
+                </output>
+              )}
           </section>
         )}
 
@@ -1236,7 +1271,7 @@ export default function GameTable() {
               <span>
                 {game.phase === 'lobby'
                   ? `${game.players.filter((p) => p.ready).length} READY`
-                  : `${game.players.filter((p) => p.alive).length} IN PLAY`}
+                  : `${game.players.filter((p) => p.alive).length} IN PLAY${lastElection && game.phase !== 'voting' ? ` · ROUND ${lastElection.round} VOTES` : ''}`}
               </span>
             </div>
             <div
@@ -1253,6 +1288,18 @@ export default function GameTable() {
                     style={{ animationDelay: `${i * 45}ms` }}
                     title={`${p.name}${office ? ` · ${office.label}${game.phase === 'voting' ? ' nominee' : ''}` : ''}${knowledge ? ` · ${knowledge.label}` : ''}`}
                   >
+                    {inGame && (
+                      <PlayerEvent
+                        playerId={p.id}
+                        phase={game.phase}
+                        sealed={game.voted.includes(p.id)}
+                        election={lastElection}
+                        policy={feedback.policy}
+                        freshElection={
+                          feedback.election?.id === lastElection?.id
+                        }
+                      />
+                    )}
                     <div className="player-number">
                       <img
                         className="player-portrait"
@@ -2205,6 +2252,7 @@ function ActionPanel({
   const chancellor = game.players.find((p) => p.id === game.chancellor);
   const isPresident = game.president === me.id;
   const isChancellor = game.chancellor === me.id;
+  const legislation = legislativeGuidance(game);
   let title = '';
   let description = '';
   if (game.phase === 'finished') {
@@ -2227,28 +2275,9 @@ function ActionPanel({
       game.me.ballot === null
         ? 'Do you trust this government? Cast your ballot.'
         : 'Your ballot is sealed. Waiting for the rest of the chamber.';
-  } else if (game.phase === 'president-discard') {
-    title = isPresident
-      ? 'Discard one policy in secret.'
-      : 'The president is reviewing three policies.';
-    description = isPresident
-      ? 'The remaining two will be passed to the chancellor. Stay silent.'
-      : 'The government must stay silent until a policy is enacted.';
-  } else if (game.phase === 'chancellor-enact') {
-    title = isChancellor
-      ? 'Choose a policy to enact.'
-      : 'The chancellor is choosing a policy.';
-    description = isChancellor
-      ? game.vetoDenied
-        ? 'The veto was refused. You must enact one policy.'
-        : 'The other policy will be discarded. Stay silent.'
-      : 'The policy will be revealed to the whole chamber.';
-  } else if (game.phase === 'veto-response') {
-    title = isPresident
-      ? 'Do you agree to the veto?'
-      : 'The president is considering a veto.';
-    description =
-      'If both leaders agree, the policies are discarded and the election tracker advances.';
+  } else if (legislation) {
+    title = legislation.title;
+    description = legislation.description;
   } else if (game.phase === 'executive') {
     title = `${isPresident ? 'Your power' : `${president?.name}’s power`}: ${powerNames[game.power!]}`;
     description = isPresident
@@ -2441,28 +2470,6 @@ function ActionPanel({
             : 'Waiting for the host to open the next lobby. You can leave from the top bar.'}
         </p>
       )}
-      {game.phase !== 'voting' && game.lastVote && (
-        <details className="last-election">
-          <summary>
-            LAST ELECTION <b>{game.lastVote.passed ? 'PASSED' : 'FAILED'}</b>
-          </summary>
-          <div>
-            {game.players
-              .filter((p) => p.id in game.lastVote!.votes)
-              .map((p) => (
-                <span
-                  key={p.id}
-                  title={`${p.name}: ${game.lastVote!.votes[p.id] ? 'Ja' : 'Nein'}`}
-                  className={
-                    game.lastVote!.votes[p.id] ? 'vote-yes' : 'vote-no'
-                  }
-                >
-                  {p.name} <b>{game.lastVote!.votes[p.id] ? 'Ja' : 'Nein'}</b>
-                </span>
-              ))}
-          </div>
-        </details>
-      )}
     </div>
   );
 }
@@ -2639,7 +2646,16 @@ function Conversation({
               [...game.log].reverse().map((item) => (
                 <div className="log-entry" key={item.id}>
                   <span>{String(item.round).padStart(2, '0')}</span>
-                  <p>{item.text}</p>
+                  <p>
+                    {item.text}
+                    {item.policy?.source === 'government' &&
+                      item.policy.chancellor && (
+                        <small className="log-government">
+                          Enacted by {item.policy.chancellor.name} · President:{' '}
+                          {item.policy.president?.name ?? 'Unknown'}
+                        </small>
+                      )}
+                  </p>
                 </div>
               ))
             ) : (

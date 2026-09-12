@@ -9,10 +9,12 @@ export function PolicyBoard({
   kind,
   count,
   players,
+  highlightedCount,
 }: {
   kind: Policy;
   count: number;
   players: number;
+  highlightedCount?: number;
 }) {
   const titleId = useId();
   const total = kind === 'liberal' ? 5 : 6;
@@ -51,21 +53,33 @@ export function PolicyBoard({
                   .join('. ')}
           </title>
           <image href={asset(board)} width="1683" height="650" />
-          {Array.from({ length: count }, (_, i) => (
-            <g key={i} className="enacted-policy">
-              <image
-                href={asset(`board-policy-${kind}`)}
-                x={
-                  (1683 *
-                    ((liberal ? 18.2 : 11) + i * (liberal ? 13.54 : 13.6))) /
-                  100
-                }
-                y="195"
-                width="168.3"
-                height={(168.3 * 240) / 174}
-              />
-            </g>
-          ))}
+          {Array.from({ length: count }, (_, i) => {
+            const x =
+              (1683 * ((liberal ? 18.2 : 11) + i * (liberal ? 13.54 : 13.6))) /
+              100;
+            return (
+              <g key={i} className="enacted-policy">
+                <image
+                  href={asset(`board-policy-${kind}`)}
+                  x={x}
+                  y="195"
+                  width="168.3"
+                  height={(168.3 * 240) / 174}
+                />
+                {i + 1 === highlightedCount && (
+                  <rect
+                    className="policy-highlight"
+                    x={x - 5}
+                    y="190"
+                    width="178.3"
+                    height={(168.3 * 240) / 174 + 10}
+                    rx="10"
+                    aria-hidden="true"
+                  />
+                )}
+              </g>
+            );
+          })}
         </svg>
       </div>
     </section>

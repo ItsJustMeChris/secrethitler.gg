@@ -44,7 +44,19 @@ export type Practice = {
   memory: Record<string, BotMemory>;
   lastReaction?: number;
 };
-export type Entry = { id: number; round: number; text: string };
+export type PolicyEnactment = {
+  kind: Policy;
+  source: 'government' | 'chaos';
+  count: number;
+  president: { id: string; name: string } | null;
+  chancellor: { id: string; name: string } | null;
+};
+export type Entry = {
+  id: number;
+  round: number;
+  text: string;
+  policy?: PolicyEnactment;
+};
 export type Message = {
   id: string;
   playerId: string;
@@ -305,8 +317,13 @@ export function addBot(game: Game) {
     memory: {},
   };
 }
-function log(game: Game, text: string) {
-  game.log.push({ id: ++game.logSequence, round: game.round, text });
+function log(game: Game, text: string, policy?: PolicyEnactment) {
+  game.log.push({
+    id: ++game.logSequence,
+    round: game.round,
+    text,
+    ...(policy ? { policy } : {}),
+  });
   game.log = game.log.slice(-240);
 }
 function nameOf(game: Game, id: string | null) {
@@ -381,6 +398,19 @@ function enactPolicy(game: Game, policy: Policy, chaos = false) {
   log(
     game,
     `${chaos ? 'Chaos enacted' : 'The government enacted'} a ${policy} policy.`,
+    {
+      kind: policy,
+      source: chaos ? 'chaos' : 'government',
+      count: game[policy],
+      president:
+        !chaos && game.president
+          ? { id: game.president, name: nameOf(game, game.president) }
+          : null,
+      chancellor:
+        !chaos && game.chancellor
+          ? { id: game.chancellor, name: nameOf(game, game.chancellor) }
+          : null,
+    },
   );
   if (game.liberal === 5)
     return finish(game, 'liberal', 'Five liberal policies were enacted.');

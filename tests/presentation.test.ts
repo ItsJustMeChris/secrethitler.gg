@@ -3,6 +3,12 @@ import assert from 'node:assert/strict';
 import { newGame, joinGame, applyAction, viewFor } from '../lib/game.ts';
 import {
   isYourTurn,
+  legislativeGuidance,
+  electionResult,
+  newElectionResult,
+  policyResult,
+  newPolicyResult,
+  policyResultTitle,
   playerOffice,
   playerSelection,
   tableCue,
@@ -407,4 +413,237 @@ void test('execution cues do not reveal allegiance, and victory takes precedence
   };
   assert.equal(tableCue(view, ended)?.kind, 'victory');
   assert.equal(tableCue(view, ended)?.party, 'liberal');
+});
+
+void test('legislative guidance names the actual sender and recipient without depending on private cards', () => {
+  for (let count = 5; count <= 10; count++) {
+    const { game } = fixture(count);
+    assert.equal(legislativeGuidance(viewFor(game, 'p0')), null);
+    applyAction(game, 'p0', { type: 'nominate', target: 'p1' });
+    for (const player of game.players)
+      applyAction(game, player.id, { type: 'vote', yes: true });
+    assert.match(
+      legislativeGuidance(viewFor(game, 'p0'))!.description,
+      /remaining two policies to Player 1/,
+    );
+    assert.match(legislativeGuidance(viewFor(game, 'p2'))!.title, /Player 0/);
+    applyAction(game, 'p0', { type: 'discard', index: 0 });
+    const chancellor = viewFor(game, 'p1');
+    assert.match(
+      legislativeGuidance(chancellor)!.description,
+      /^Player 0 passed you these two policies/,
+    );
+    assert.match(legislativeGuidance(viewFor(game, 'p2'))!.title, /^Player 1/);
+    assert.deepEqual(
+      legislativeGuidance(chancellor),
+      legislativeGuidance({
+        ...chancellor,
+        me: {
+          ...chancellor.me,
+          role: 'hitler',
+          hand: ['fascist', 'fascist'],
+          teammates: [],
+          notes: [{ text: 'SECRET' }],
+        },
+      }),
+    );
+    game.vetoDenied = true;
+    assert.match(
+      legislativeGuidance(viewFor(game, 'p1'))!.description,
+      /Player 0.*refused the veto/,
+    );
+    game.phase = 'veto-response';
+    assert.match(
+      legislativeGuidance(viewFor(game, 'p0'))!.title,
+      /Player 1’s veto/,
+    );
+  }
+});
+
+void test('election reveal waits for all ballots at 5–10 seats and identifies the voted pair after rotation', async () => {
+  for (let count = 5; count <= 10; count++) {
+    const { game } = fixture(count);
+    applyAction(game, 'p0', { type: 'nominate', target: 'p1' });
+    game.revision++;
+    const voting = viewFor(game, 'p0');
+    for (let i = 0; i < count - 1; i++) {
+      applyAction(game, `p${i}`, { type: 'vote', yes: i % 2 === 0 });
+      game.revision++;
+      const partial = viewFor(game, 'p0');
+      assert.equal(electionResult(partial), null);
+      assert.equal(newElectionResult(voting, partial), null);
+    }
+    applyAction(game, `p${count - 1}`, {
+      type: 'vote',
+      yes: (count - 1) % 2 === 0,
+    });
+    game.revision++;
+    const after = viewFor(game, 'p0');
+    const result = newElectionResult(voting, after)!;
+    assert.equal(result.yes, Math.ceil(count / 2));
+    assert.equal(result.no, Math.floor(count / 2));
+    assert.equal(result.passed, count % 2 === 1);
+    assert.equal(result.president, 'Player 0');
+    assert.equal(result.chancellor, 'Player 1');
+    assert.deepEqual(
+      result.ballots.map((ballot) => ballot.id),
+      game.players.map((player) => player.id),
+    );
+    assert.equal(
+      newElectionResult(after, { ...after, revision: after.revision + 1 }),
+      null,
+    );
+    assert.equal(
+      newElectionResult(after, { ...after, revision: after.revision - 1 }),
+      null,
+    );
+    assert.equal(newElectionResult(null, after), null);
+    assert.equal(
+      newElectionResult(voting, { ...after, code: 'OTHERONE' }),
+      null,
+    );
+    assert.deepEqual(
+      newElectionResult(voting, {
+        ...after,
+        phase: 'nomination',
+        president: 'p3',
+        chancellor: null,
+      }),
+      result,
+    );
+    assert.equal(
+      newElectionResult(voting, { ...after, phase: 'voting' }),
+      null,
+    );
+    const secretsChanged = {
+      ...after,
+      me: {
+        ...after.me,
+        hand: ['liberal' as const],
+        ballot: true,
+        role: 'hitler' as const,
+        notes: [{ text: 'PRIVATE' }],
+      },
+    };
+    assert.deepEqual(electionResult(secretsChanged), result);
+    game.fairness = await createFairness();
+    assert.equal(newElectionResult(voting, viewFor(game, 'p0')), null);
+    game.phase = 'lobby';
+    assert.equal(electionResult(viewFor(game, 'p0')), null);
+  }
+});
+
+void test('public policy records name the enacting chancellor and president after turn rotation, never the private hand', () => {
+  const { game } = fixture();
+  applyAction(game, 'p0', { type: 'nominate', target: 'p1' });
+  for (const player of game.players)
+    applyAction(game, player.id, { type: 'vote', yes: true });
+  game.hand = ['liberal', 'fascist', 'liberal'];
+  const drawing = structuredClone(viewFor(game, 'p2'));
+  assert.equal(policyResult(drawing), null);
+  applyAction(game, 'p0', { type: 'discard', index: 0 });
+  game.revision++;
+  const passed = structuredClone(viewFor(game, 'p2'));
+  assert.equal(policyResult(passed), null);
+  const handoff = tableCue(drawing, passed)!;
+  assert.equal(handoff.kind, 'handoff');
+  assert.equal(handoff.detail, 'Player 0 → Player 1');
+  assert.ok(!JSON.stringify(handoff).includes('fascist'));
+  applyAction(game, 'p1', { type: 'enact', index: 0 });
+  game.revision++;
+  const after = viewFor(game, 'p2');
+  const result = newPolicyResult(passed, after)!;
+  assert.deepEqual(game.log.find((entry) => entry.policy)!.policy, {
+    kind: 'fascist',
+    source: 'government',
+    count: 1,
+    president: { id: 'p0', name: 'Player 0' },
+    chancellor: { id: 'p1', name: 'Player 1' },
+  });
+  assert.equal(result.round, 1);
+  assert.equal(result.chancellor!.id, 'p1');
+  assert.equal(policyResultTitle(result), 'Player 1 enacted a Fascist policy');
+  for (const player of game.players)
+    assert.deepEqual(policyResult(viewFor(game, player.id)), result);
+  assert.deepEqual(
+    policyResult({
+      ...after,
+      president: 'p4',
+      chancellor: 'p5',
+      lastVote: null,
+    }),
+    result,
+  );
+  assert.deepEqual(newPolicyResult(drawing, after), result);
+  assert.equal(
+    newPolicyResult(after, { ...after, revision: after.revision + 1 }),
+    null,
+  );
+  assert.equal(newPolicyResult(null, after), null);
+  assert.equal(
+    newPolicyResult(after, { ...after, revision: after.revision - 1 }),
+    null,
+  );
+  assert.equal(newPolicyResult(passed, { ...after, code: 'OTHERONE' }), null);
+  assert.equal(
+    policyResult({
+      ...after,
+      log: after.log.map(({ policy: _policy, ...entry }) => entry),
+    }),
+    null,
+  );
+});
+
+void test('chaos from either failed elections or an agreed veto is never attributed to a player, even on a winning policy', () => {
+  for (const viaVeto of [false, true]) {
+    const { game } = fixture();
+    game.tracker = 2;
+    game.fascist = 5;
+    game.deck[0] = 'fascist';
+    let before = viewFor(game, 'p0');
+    if (viaVeto) {
+      game.phase = 'veto-response';
+      game.chancellor = 'p1';
+      game.hand = ['fascist', 'liberal'];
+      before = viewFor(game, 'p0');
+      applyAction(game, 'p0', { type: 'veto-answer', yes: true });
+    } else {
+      applyAction(game, 'p0', { type: 'nominate', target: 'p1' });
+      before = viewFor(game, 'p0');
+      for (const player of game.players)
+        applyAction(game, player.id, { type: 'vote', yes: false });
+    }
+    game.revision++;
+    const after = viewFor(game, 'p0');
+    const result = newPolicyResult(before, after)!;
+    assert.equal(after.phase, 'finished');
+    assert.equal(result.source, 'chaos');
+    assert.equal(result.count, 6);
+    assert.equal(result.president, null);
+    assert.equal(result.chancellor, null);
+    assert.equal(policyResultTitle(result), 'Chaos enacted a Fascist policy');
+    assert.equal(tableCue(before, after)!.kind, 'victory');
+    if (!viaVeto) assert.equal(newElectionResult(before, after)!.passed, false);
+  }
+});
+
+void test('winning government policies retain their public author while a rematch clears all event history', () => {
+  const { game } = fixture();
+  game.phase = 'chancellor-enact';
+  game.chancellor = 'p1';
+  game.hand = ['liberal', 'fascist'];
+  game.liberal = 4;
+  const before = structuredClone(viewFor(game, 'p0'));
+  applyAction(game, 'p1', { type: 'enact', index: 0 });
+  game.revision++;
+  const finished = viewFor(game, 'p0');
+  assert.equal(newPolicyResult(before, finished)!.chancellor!.name, 'Player 1');
+  assert.equal(newPolicyResult(before, finished)!.count, 5);
+  assert.equal(tableCue(before, finished)!.kind, 'victory');
+  applyAction(game, 'p0', { type: 'rematch' });
+  game.revision++;
+  const lobby = viewFor(game, 'p0');
+  assert.equal(newPolicyResult(finished, lobby), null);
+  assert.equal(policyResult(lobby), null);
+  assert.equal(electionResult(lobby), null);
 });
