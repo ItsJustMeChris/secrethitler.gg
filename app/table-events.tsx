@@ -105,14 +105,12 @@ export function PlayerEvent({
   sealed,
   election,
   policy,
-  freshElection,
 }: {
   playerId: string;
   phase: GameView['phase'];
   sealed: boolean;
   election: ElectionResult | null;
   policy: PolicyResult | null;
-  freshElection: boolean;
 }) {
   const ballot = election?.ballots.find((item) => item.id === playerId);
   return (
@@ -135,7 +133,7 @@ export function PlayerEvent({
       ) : ballot ? (
         <span
           key={election!.id}
-          className={`player-vote-bubble ${ballot.yes ? 'ja' : 'nein'} ${freshElection ? 'fresh-event' : ''}`}
+          className={`player-vote-bubble ${ballot.yes ? 'ja' : 'nein'} fresh-event`}
           title={`Round ${election!.round}: ${ballot.name} voted ${ballot.yes ? 'Ja' : 'Nein'}`}
           aria-label={`Round ${election!.round}: ${ballot.name} voted ${ballot.yes ? 'Ja' : 'Nein'}`}
         >

@@ -85,20 +85,26 @@ export function useGameFeedback() {
       if (changedTable || next.phase === 'lobby') {
         if (timer.current) clearTimeout(timer.current);
         setCue(null);
-        if (policyTimer.current) clearTimeout(policyTimer.current);
-        setPolicy(null);
       }
       if (changedTable || next.phase === 'lobby' || next.phase === 'voting') {
         if (electionTimer.current) clearTimeout(electionTimer.current);
         setElection(null);
+        if (policyTimer.current) clearTimeout(policyTimer.current);
+        setPolicy(null);
       }
       const revealed = newElectionResult(previous, next);
       if (revealed && !document.hidden) {
+        if (policyTimer.current) clearTimeout(policyTimer.current);
+        setPolicy(null);
         if (electionTimer.current) clearTimeout(electionTimer.current);
         setElection(revealed);
-        electionTimer.current = setTimeout(() => setElection(null), 6500);
+        electionTimer.current = setTimeout(() => setElection(null), 4000);
       }
       const enacted = newPolicyResult(previous, next);
+      if (enacted) {
+        if (electionTimer.current) clearTimeout(electionTimer.current);
+        setElection(null);
+      }
       if (enacted && !document.hidden) {
         if (policyTimer.current) clearTimeout(policyTimer.current);
         setPolicy(enacted);

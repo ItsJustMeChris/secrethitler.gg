@@ -1271,7 +1271,7 @@ export default function GameTable() {
               <span>
                 {game.phase === 'lobby'
                   ? `${game.players.filter((p) => p.ready).length} READY`
-                  : `${game.players.filter((p) => p.alive).length} IN PLAY${lastElection && game.phase !== 'voting' ? ` · ROUND ${lastElection.round} VOTES` : ''}`}
+                  : `${game.players.filter((p) => p.alive).length} IN PLAY${feedback.election && game.phase !== 'voting' ? ` · ROUND ${feedback.election.round} VOTES` : ''}`}
               </span>
             </div>
             <div
@@ -1293,11 +1293,8 @@ export default function GameTable() {
                         playerId={p.id}
                         phase={game.phase}
                         sealed={game.voted.includes(p.id)}
-                        election={lastElection}
+                        election={feedback.election}
                         policy={feedback.policy}
-                        freshElection={
-                          feedback.election?.id === lastElection?.id
-                        }
                       />
                     )}
                     <div className="player-number">
