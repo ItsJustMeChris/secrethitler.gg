@@ -9,7 +9,12 @@ import {
   viewFor,
 } from '../lib/game.ts';
 import { playerKnowledge } from '../lib/player-knowledge.ts';
-import { PORTRAITS, portraitUrl } from '../lib/portraits.ts';
+import {
+  PORTRAITS,
+  PORTRAIT_CATEGORIES,
+  portraitCategory,
+  portraitUrl,
+} from '../lib/portraits.ts';
 
 function started(count: number) {
   const game = newGame('ABCDEFGH', 'p0', 'Player 0', 12);
@@ -21,19 +26,29 @@ function started(count: number) {
 }
 
 void test('only catalog portraits are accepted, with a legacy default and safe local URLs', () => {
-  assert.equal(PORTRAITS.length, 12);
+  assert.equal(PORTRAITS.length, 30);
+  assert.equal(new Set(PORTRAITS.map((item) => item.id)).size, 30);
+  assert.equal(new Set(PORTRAITS.map((item) => item.label)).size, 30);
+  for (const category of PORTRAIT_CATEGORIES) {
+    const members = PORTRAITS.filter(
+      (portrait) => portrait.category === category.id,
+    );
+    assert.equal(members.length, 10);
+    for (const portrait of members)
+      assert.equal(portraitCategory(portrait.id), category.id);
+  }
   assert.equal(validPortrait(undefined), 1);
   for (const item of PORTRAITS) {
     assert.equal(validPortrait(item.id), item.id);
     assert.match(
       portraitUrl(item.id),
-      /^\/assets\/portraits\/illustrated-portrait-\d{2}\.png$/,
+      /^\/assets\/portraits\/cartoon-avatar-\d{2}\.png$/,
     );
   }
   for (const value of [
     0,
     -1,
-    13,
+    31,
     1.2,
     NaN,
     Infinity,
@@ -45,32 +60,33 @@ void test('only catalog portraits are accepted, with a legacy default and safe l
     assert.throws(() => validPortrait(value));
     assert.equal(portraitUrl(value as number), portraitUrl(1));
   }
-  assert.throws(() => newGame('ABCDEFGH', 'host', 'Host', 13));
+  assert.throws(() => newGame('ABCDEFGH', 'host', 'Host', 31));
+  assert.equal(newGame('ABCDEFGH', 'host', 'Host', 30).players[0].portrait, 30);
 });
 
 void test('pictures are public cosmetics, change only the actor and preserve lobby readiness', () => {
   const game = newGame('ABCDEFGH', 'host', 'Host', 12);
   joinGame(game, 'friend', 'Friend', 5);
-  assert.throws(() => joinGame(game, 'invalid', 'Invalid', 13));
+  assert.throws(() => joinGame(game, 'invalid', 'Invalid', 31));
   assert.equal(game.players.length, 2);
   applyAction(game, 'friend', { type: 'ready' });
-  applyAction(game, 'friend', { type: 'portrait', portrait: 9 });
+  applyAction(game, 'friend', { type: 'portrait', portrait: 29 });
   assert.deepEqual(
     game.players.map((p) => p.portrait),
-    [12, 9],
+    [12, 29],
   );
   assert.equal(game.players[1].ready, true);
   assert.throws(() =>
     applyAction(game, 'outsider', { type: 'portrait', portrait: 3 }),
   );
   assert.throws(() =>
-    applyAction(game, 'host', { type: 'portrait', portrait: 13 }),
+    applyAction(game, 'host', { type: 'portrait', portrait: 31 }),
   );
   for (const player of game.players) {
     const view = viewFor(game, player.id);
     assert.deepEqual(
       view.players.map((p) => p.portrait),
-      [12, 9],
+      [12, 29],
     );
     assert.ok(view.players.every((p) => !('role' in p)));
     assert.ok(view.players.every((p) => playerKnowledge(view, p.id) === null));
@@ -108,6 +124,10 @@ void test('AI choose unused pictures before roles exist; legacy seats receive va
   while (game.players.length < 10) addBot(game);
   const pictures = game.players.map((p) => p.portrait);
   assert.equal(new Set(pictures).size, 10);
+  assert.deepEqual(
+    [...new Set(pictures.map((id) => portraitCategory(id!)))].sort(),
+    ['animals', 'men', 'women'],
+  );
   assert.ok(game.players.every((p) => !p.role));
   applyAction(game, 'host', { type: 'ready' });
   applyAction(game, 'host', { type: 'start' });

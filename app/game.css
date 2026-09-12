@@ -440,8 +440,41 @@ input::placeholder {
 }
 .portrait-options {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 7px;
+}
+.portrait-tabs {
+  gap: 9px;
+}
+.portrait-tabs .portrait-categories {
+  width: 100%;
+  height: auto;
+  min-height: 44px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.portrait-categories [data-slot='tabs-trigger'] {
+  min-height: 38px;
+  padding: 5px 8px;
+  font-size: 14px;
+  color: var(--muted-ink);
+}
+.portrait-categories [data-slot='tabs-trigger'][data-active] {
+  color: var(--ink);
+  background: var(--ivory);
+}
+.portrait-categories [data-slot='tabs-trigger'] > span {
+  font-size: 12px;
+  font-weight: 400;
+}
+.portrait-selection {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--muted-ink);
+}
+.portrait-selection strong {
+  color: var(--ink);
 }
 .portrait-option {
   position: relative;
@@ -2632,7 +2665,6 @@ input::placeholder {
     display: none;
   }
   .portrait-options {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 3px;
   }
   .entry-card {
