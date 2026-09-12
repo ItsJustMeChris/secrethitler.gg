@@ -14,6 +14,10 @@
   --fascist-wash: #f2ccae;
   --success-ink: #31573a;
   --success-wash: #e0e4c8;
+  --president-ink: #765010;
+  --president-wash: #f7deb0;
+  --chancellor-ink: #60477c;
+  --chancellor-wash: #e5ddeb;
   color-scheme: light;
 }
 * {
@@ -1132,9 +1136,21 @@ input::placeholder {
   background: var(--ivory);
   text-align: center;
 }
-.player.self-player {
-  border-color: var(--liberal-ink);
-  background: var(--liberal-wash);
+.player.president-player,
+.president-office {
+  --office-ink: var(--president-ink);
+  --office-wash: var(--president-wash);
+}
+.player.chancellor-player,
+.chancellor-office {
+  --office-ink: var(--chancellor-ink);
+  --office-wash: var(--chancellor-wash);
+}
+.player.president-player,
+.player.chancellor-player {
+  border-color: var(--office-ink);
+  background: var(--office-wash);
+  box-shadow: inset 0 3px 0 var(--office-ink);
 }
 .player-number {
   position: relative;
@@ -1198,7 +1214,47 @@ input::placeholder {
   font-size: 12px;
   line-height: 1.1;
   font-weight: 400;
-  color: var(--liberal-ink);
+  color: var(--ink);
+}
+.player-info > .office-label {
+  color: var(--office-ink);
+  font-weight: 700;
+  white-space: normal;
+  overflow: visible;
+}
+.office-short {
+  display: none;
+}
+.government-candidates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  max-width: 440px;
+  margin-inline: auto;
+}
+.government-candidate {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--office-ink);
+  border-radius: 6px;
+  color: var(--office-ink);
+  background: var(--office-wash);
+  overflow-wrap: anywhere;
+}
+.office-caption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: 14px;
+  margin-bottom: 3px;
+}
+.office-caption svg {
+  flex-shrink: 0;
+}
+.president-player .player-icon,
+.chancellor-player .player-icon {
+  color: var(--office-ink);
 }
 .bot-badge {
   display: inline-flex;
@@ -2560,6 +2616,12 @@ input::placeholder {
   }
 }
 @media (max-width: 390px) {
+  .office-full {
+    display: none;
+  }
+  .office-short {
+    display: inline;
+  }
   .table-status {
     display: none;
   }
