@@ -70,7 +70,7 @@ import { coachTip } from '@/lib/coach';
 import type { Action, GameView, Power } from '@/lib/game';
 import { FairPlayProof, rememberFairness } from './fair-play';
 import { PortraitPicker } from './portrait-picker';
-import { isPortrait, portraitUrl } from '@/lib/portraits';
+import { PORTRAITS, isPortrait, portraitUrl } from '@/lib/portraits';
 import { playerKnowledge } from '@/lib/player-knowledge';
 
 type View = Omit<GameView, 'players'> & {
@@ -1877,7 +1877,7 @@ export default function GameTable() {
               voices.
             </p>
             <hr />
-            <h3>Original game & artwork</h3>
+            <h3>Game & artwork credits</h3>
             <p>
               Secret Hitler by Mike Boxleiter, Tommy Maranges, and Mac Schubert.
               Original game and artwork © Goat, Wolf & Cabbage. Board, policy,
@@ -1891,11 +1891,33 @@ export default function GameTable() {
               </a>
               , whose adapted PNGs are used with their original colors and
               borders. The logo and supporting illustrations come from the
-              official game. The 12 selectable player portraits were created for
-              this app using AI image generation. Portraits are cosmetic and
-              independent of secret roles. The responsive interface, networking,
-              and rule enforcement are new. This adaptation is unaffiliated with
-              the original creators and is released under{' '}
+              official game.
+            </p>
+            <p>
+              The {PORTRAITS.length} selectable player avatars are original
+              cartoon characters created for this app using AI image generation,
+              inspired by the original game’s printed character art. The set has{' '}
+              {
+                PORTRAITS.filter((portrait) => portrait.category === 'men')
+                  .length
+              }{' '}
+              men,{' '}
+              {
+                PORTRAITS.filter((portrait) => portrait.category === 'women')
+                  .length
+              }{' '}
+              women, and{' '}
+              {
+                PORTRAITS.filter((portrait) => portrait.category === 'animals')
+                  .length
+              }{' '}
+              animal characters, all with transparent backgrounds. Avatars are
+              cosmetic and independent of secret roles.
+            </p>
+            <p>
+              The responsive interface, networking, and rule enforcement are
+              new. This adaptation is unaffiliated with the original creators
+              and is released under{' '}
               <a
                 href="https://creativecommons.org/licenses/by-nc-sa/4.0/"
                 target="_blank"
