@@ -181,11 +181,34 @@ game = await president.action(game, { type: 'discard', index: 0 });
 assert.equal(game.me.hand.length, 0);
 game = await chancellor.request(null, code);
 assert.equal(game.me.hand.length, 2);
+assert.equal(
+  game.log.some((entry) => entry.policy),
+  false,
+);
+const publicPolicy = {
+  kind: game.me.hand[0],
+  source: 'government',
+  count: 1,
+  president: {
+    id: game.president,
+    name: game.players.find((p) => p.id === game.president).name,
+  },
+  chancellor: {
+    id: game.chancellor,
+    name: game.players.find((p) => p.id === game.chancellor).name,
+  },
+};
 await chancellor.action(game, { type: 'enact', index: 1000 }, randomUUID(), {
   status: 400,
 });
 game = await chancellor.action(game, { type: 'enact', index: 0 });
 assert.equal(game.liberal + game.fascist, 1);
+assert.deepEqual(game.log.find((entry) => entry.policy).policy, publicPolicy);
+const publicResultForHost = await host.request(null, code);
+assert.deepEqual(
+  publicResultForHost.log.find((entry) => entry.policy).policy,
+  publicPolicy,
+);
 console.log(
   'PASS: 10 independent seats, private roles/hands, sealed ballots, concurrent voting, replay protection, illegal moves, CSRF and session forgery.',
 );
@@ -249,8 +272,16 @@ reconnect.cookie = host.cookie;
 const restored = await reconnect.request(null, code);
 assert.equal(restored.me.id, host.id);
 assert.equal(restored.winner, game.winner);
+assert.deepEqual(
+  restored.log.filter((entry) => entry.policy),
+  game.log.filter((entry) => entry.policy),
+);
 game = await host.action(game, { type: 'rematch' });
 assert.equal(game.phase, 'lobby');
+assert.equal(
+  game.log.some((entry) => entry.policy),
+  false,
+);
 assert.ok(game.players.every((p) => !p.role && !p.ready));
 // Rendered page and official static assets served successfully with security headers.
 const page = await fetch(base);

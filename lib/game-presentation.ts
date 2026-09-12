@@ -2,11 +2,131 @@ import type { GameView, Policy } from './game.ts';
 
 export type TableCue = {
   id: string;
-  kind: 'deal' | 'policy' | 'election' | 'execution' | 'turn' | 'victory';
+  kind:
+    | 'deal'
+    | 'policy'
+    | 'election'
+    | 'handoff'
+    | 'execution'
+    | 'turn'
+    | 'victory';
   title: string;
   detail: string;
   party?: Policy;
 };
+
+export function legislativeGuidance(game: GameView) {
+  const president =
+    game.players.find((p) => p.id === game.president)?.name ?? 'The president';
+  const chancellor =
+    game.players.find((p) => p.id === game.chancellor)?.name ??
+    'the chancellor';
+  const isPresident = game.me.id === game.president;
+  const isChancellor = game.me.id === game.chancellor;
+  if (game.phase === 'president-discard')
+    return {
+      title: isPresident
+        ? 'Discard one policy in secret.'
+        : `${president} is reviewing three policies.`,
+      description: isPresident
+        ? `Pass the remaining two policies to ${chancellor}. Stay silent.`
+        : `${president} will pass two policies to ${chancellor}. The government must stay silent.`,
+    };
+  if (game.phase === 'chancellor-enact')
+    return {
+      title: isChancellor
+        ? 'Choose a policy to enact.'
+        : `${chancellor} is choosing a policy.`,
+      description: isChancellor
+        ? game.vetoDenied
+          ? `${president} passed you these two policies and refused the veto. Enact one; the other is discarded. Stay silent.`
+          : `${president} passed you these two policies. Enact one; the other is discarded. Stay silent.`
+        : `${president} passed two policies to ${chancellor}. The enacted policy will be revealed to everyone.`,
+    };
+  if (game.phase === 'veto-response')
+    return {
+      title: isPresident
+        ? `Do you agree to ${chancellor}’s veto?`
+        : `${president} is considering ${chancellor}’s veto.`,
+      description:
+        'If both leaders agree, the policies are discarded and the election tracker advances.',
+    };
+  return null;
+}
+
+// Only the server's completed, public election record supplies ballot choices.
+export function electionResult(game: GameView) {
+  const vote = game.lastVote;
+  if (!vote || game.phase === 'lobby') return null;
+  const playerName = (id: string) =>
+    game.players.find((p) => p.id === id)?.name ?? 'Departed player';
+  const ballots = Object.entries(vote.votes)
+    .map(([id, yes]) => ({
+      id,
+      name: playerName(id),
+      yes,
+      seat: game.players.findIndex((p) => p.id === id),
+    }))
+    .sort((a, b) => a.seat - b.seat || a.id.localeCompare(b.id));
+  return {
+    id: `${game.code}:${game.fairness?.id ?? 'legacy'}:${vote.round}`,
+    round: vote.round,
+    passed: vote.passed,
+    president: playerName(vote.president),
+    chancellor: playerName(vote.chancellor),
+    yes: ballots.filter((ballot) => ballot.yes).length,
+    no: ballots.filter((ballot) => !ballot.yes).length,
+    ballots,
+  };
+}
+
+export type ElectionResult = NonNullable<ReturnType<typeof electionResult>>;
+
+export function policyResult(game: GameView) {
+  if (game.phase === 'lobby') return null;
+  const entry = [...game.log].reverse().find((item) => item.policy);
+  return entry?.policy
+    ? {
+        ...entry.policy,
+        id: `${game.code}:${game.fairness?.id ?? 'legacy'}:policy:${entry.id}`,
+        round: entry.round,
+      }
+    : null;
+}
+
+export type PolicyResult = NonNullable<ReturnType<typeof policyResult>>;
+
+export function newPolicyResult(before: GameView | null, after: GameView) {
+  if (
+    !before ||
+    before.code !== after.code ||
+    before.fairness?.id !== after.fairness?.id ||
+    after.revision <= before.revision
+  )
+    return null;
+  const result = policyResult(after);
+  return result && result.id !== policyResult(before)?.id ? result : null;
+}
+
+export function policyResultTitle(result: PolicyResult) {
+  const party = result.kind === 'liberal' ? 'Liberal' : 'Fascist';
+  return result.source === 'chaos'
+    ? `Chaos enacted a ${party} policy`
+    : `${result.chancellor?.name ?? 'The chancellor'} enacted a ${party} policy`;
+}
+
+export function newElectionResult(before: GameView | null, after: GameView) {
+  if (
+    !before ||
+    before.code !== after.code ||
+    before.fairness?.id !== after.fairness?.id ||
+    after.revision <= before.revision ||
+    after.phase === 'voting'
+  )
+    return null;
+  const result = electionResult(after);
+  return result && result.id !== electionResult(before)?.id ? result : null;
+}
 
 export function playerOffice(game: GameView, playerId: string) {
   if (
@@ -127,6 +247,19 @@ export function tableCue(
         ? 'Government elected'
         : 'Government rejected',
       detail: `${Object.values(after.lastVote.votes).filter(Boolean).length} Ja · ${Object.values(after.lastVote.votes).filter((v) => !v).length} Nein`,
+    };
+  if (
+    before.phase === 'president-discard' &&
+    after.phase === 'chancellor-enact' &&
+    before.round === after.round &&
+    before.president === after.president &&
+    before.chancellor === after.chancellor
+  )
+    return {
+      id,
+      kind: 'handoff',
+      title: 'Policies passed',
+      detail: `${after.players.find((p) => p.id === after.president)?.name ?? 'President'} → ${after.players.find((p) => p.id === after.chancellor)?.name ?? 'Chancellor'}`,
     };
   if (after.phase !== before.phase && isYourTurn(after))
     return {

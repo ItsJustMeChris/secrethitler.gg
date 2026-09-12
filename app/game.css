@@ -1044,37 +1044,215 @@ input::placeholder {
 .next-match-note {
   font-size: 12px !important;
 }
-.last-election {
-  margin-top: 10px;
-}
-.last-election summary {
-  display: inline-block;
-  cursor: pointer;
-  padding: 5px 8px;
-  font-size: 12px;
-  color: var(--muted-ink);
-}
-.last-election summary b {
-  margin-left: 8px;
-}
-.last-election > div {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 6px;
-}
-.last-election > div > span {
-  padding: 3px 7px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  font-size: 12px;
-}
-.vote-yes b {
+.ja-total {
   color: var(--success-ink);
 }
-.vote-no b {
+.nein-total {
   color: var(--fascist-ink);
+}
+.election-recap,
+.policy-recap {
+  margin: 8px 10px 0;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 14px;
+}
+.election-recap > summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px 8px;
+  padding: 9px 10px;
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+}
+.election-recap > summary::-webkit-details-marker {
+  display: none;
+}
+.election-recap > summary:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.election-outcome,
+.election-totals,
+.election-government,
+.election-government > span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.election-outcome {
+  flex-wrap: wrap;
+}
+.election-outcome > svg {
+  flex: none;
+}
+.election-outcome > small {
+  color: var(--muted-ink);
+  font-size: 12px;
+}
+.election-totals {
+  gap: 3px;
+  white-space: nowrap;
+}
+.election-government {
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.election-government > span {
+  color: var(--office-ink);
+  overflow-wrap: anywhere;
+}
+.election-government svg {
+  flex: none;
+}
+.recap-chevron {
+  transition: transform 160ms ease;
+}
+.election-recap[open] .recap-chevron {
+  transform: rotate(180deg);
+}
+.election-ballots {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px 12px;
+  padding: 0 10px 10px;
+  list-style: none;
+  margin: 0;
+}
+.election-ballots > li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  border-top: 1px solid var(--line);
+  padding-top: 5px;
+  min-width: 0;
+}
+.election-ballots > li > span {
+  overflow-wrap: anywhere;
+}
+.policy-recap {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+}
+.policy-recap > img {
+  width: 25px;
+  height: 35px;
+  object-fit: contain;
+  flex: none;
+}
+.policy-recap > div {
+  min-width: 0;
+}
+.policy-recap b {
+  display: block;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.policy-recap > div > span {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--muted-ink);
+  overflow-wrap: anywhere;
+}
+.policy-recap.liberal {
+  border-left: 3px solid var(--liberal-ink);
+}
+.policy-recap.fascist {
+  border-left: 3px solid var(--fascist-ink);
+}
+.player-event-slot {
+  width: 100%;
+  height: 28px;
+  flex: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 3px;
+}
+.player-vote-bubble,
+.player-policy-bubble {
+  position: relative;
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  line-height: 1.15;
+  font-weight: 700;
+  text-align: center;
+}
+.player-vote-bubble {
+  font-size: 14px;
+  min-width: 38px;
+}
+.player-vote-bubble::after,
+.player-policy-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: calc(50% - 3px);
+  width: 6px;
+  height: 6px;
+  background: inherit;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  transform: rotate(45deg);
+}
+.player-vote-bubble.ja {
+  color: var(--success-ink);
+  background: var(--success-wash);
+}
+.player-vote-bubble.nein {
+  color: var(--fascist-ink);
+  background: var(--fascist-wash);
+}
+.player-policy-bubble {
+  padding: 2px 4px;
+}
+.player-policy-bubble.liberal {
+  color: var(--liberal-ink);
+  background: var(--liberal-wash);
+}
+.player-policy-bubble.fascist {
+  color: var(--fascist-ink);
+  background: var(--fascist-wash);
+}
+.player-policy-bubble small,
+.player-policy-bubble b {
+  display: block;
+  font-size: 12px;
+}
+.player-policy-bubble small {
+  font-weight: 400;
+}
+.ballot-sealed {
+  display: inline-flex;
+  color: var(--muted-ink);
+}
+.players-heading > span {
+  max-width: 48%;
+  text-align: right;
+}
+.log-government {
+  display: block;
+  font-size: 12px;
+  margin-top: 4px;
+  color: var(--muted-ink);
+}
+.policy-highlight {
+  fill: none;
+  stroke: var(--canvas);
+  stroke-width: 10;
+  filter: drop-shadow(0 0 5px #fbb969aa);
 }
 .table-cue {
   position: absolute;
@@ -2134,8 +2312,43 @@ input::placeholder {
 .motion-on .table-cue {
   animation: cue-arrive 0.2s ease-out;
 }
-.motion-on .turn-action {
+.motion-on .action-panel {
   animation: turn-arrive 0.2s ease-out;
+}
+.motion-on .player-vote-bubble.fresh-event,
+.motion-on .player-policy-bubble.fresh-event {
+  animation: ballot-reveal 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transform-origin: bottom center;
+}
+.motion-on .election-recap.fresh-event,
+.motion-on .policy-recap.fresh-event {
+  animation: result-reveal 550ms ease-out;
+}
+.motion-on .policy-highlight {
+  animation: highlight-policy 800ms ease-in-out 3;
+}
+@keyframes ballot-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(5px) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes result-reveal {
+  from {
+    box-shadow: inset 0 0 0 2px var(--strong-line);
+  }
+  to {
+    box-shadow: inset 0 0 0 0 transparent;
+  }
+}
+@keyframes highlight-policy {
+  50% {
+    opacity: 0.35;
+  }
 }
 @keyframes draw-card {
   from {
@@ -2558,12 +2771,6 @@ input::placeholder {
   .policy-choice > span {
     font-size: 14px;
     padding: 2px;
-  }
-  .last-election {
-    margin-top: 6px;
-  }
-  .last-election summary {
-    padding: 3px 6px;
   }
   .victory-mark {
     display: none;
