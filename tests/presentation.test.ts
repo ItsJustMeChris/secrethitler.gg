@@ -1,11 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { newGame, joinGame, applyAction, viewFor } from '../lib/game.ts';
-import { isYourTurn, tableCue } from '../lib/game-presentation.ts';
+import {
+  isYourTurn,
+  playerSelection,
+  tableCue,
+} from '../lib/game-presentation.ts';
 
-function fixture() {
+function fixture(count = 7) {
   const game = newGame('ABCDEFGH', 'p0', 'Player 0');
-  for (let i = 1; i < 7; i++) joinGame(game, `p${i}`, `Player ${i}`);
+  for (let i = 1; i < count; i++) joinGame(game, `p${i}`, `Player ${i}`);
   for (const p of game.players) applyAction(game, p.id, { type: 'ready' });
   const lobby = viewFor(game, 'p0');
   applyAction(game, 'p0', { type: 'start' });
@@ -13,6 +17,109 @@ function fixture() {
   game.president = 'p0';
   return { game, lobby, view: viewFor(game, 'p0') };
 }
+
+void test('floor nomination choices agree with authoritative eligibility at every table size and living-player threshold', () => {
+  for (let count = 5; count <= 10; count++) {
+    for (const eliminated of [false, true]) {
+      const { game } = fixture(count);
+      game.lastPresident = 'p1';
+      game.lastChancellor = 'p2';
+      if (eliminated) game.players.at(-1)!.alive = false;
+      const selection = playerSelection(viewFor(game, 'p0'))!;
+      assert.equal(selection.kind, 'nominate');
+      for (const target of game.players) {
+        let accepted = true;
+        try {
+          applyAction(structuredClone(game), 'p0', {
+            type: 'nominate',
+            target: target.id,
+          });
+        } catch {
+          accepted = false;
+        }
+        const option = selection.options.find((o) => o.player.id === target.id);
+        assert.equal(
+          !!option && !option.disabledReason,
+          accepted,
+          `${count} players, eliminated=${eliminated}, target=${target.id}`,
+        );
+      }
+      assert.equal(playerSelection(viewFor(game, 'p1')), null);
+    }
+  }
+});
+
+void test('floor power choices match the server, including investigated, departed and eliminated targets', () => {
+  for (let count = 5; count <= 10; count++) {
+    for (const power of [
+      'investigate',
+      'special-election',
+      'execute',
+    ] as const) {
+      const { game } = fixture(count);
+      game.phase = 'executive';
+      game.power = power;
+      game.investigated = ['p2'];
+      game.players[3].departed = true;
+      game.players.at(-1)!.alive = false;
+      const selection = playerSelection(viewFor(game, 'p0'))!;
+      assert.equal(selection.kind, power);
+      for (const target of game.players) {
+        let accepted = true;
+        try {
+          applyAction(structuredClone(game), 'p0', {
+            type: 'power',
+            target: target.id,
+          });
+        } catch {
+          accepted = false;
+        }
+        const option = selection.options.find((o) => o.player.id === target.id);
+        assert.equal(
+          !!option && !option.disabledReason,
+          accepted,
+          `${count} players, ${power}, target=${target.id}`,
+        );
+      }
+      assert.equal(playerSelection(viewFor(game, 'p1')), null);
+    }
+  }
+});
+
+void test('floor choices disappear outside targeted phases and for eliminated or departed actors', () => {
+  const { view } = fixture();
+  for (const phase of [
+    'lobby',
+    'voting',
+    'president-discard',
+    'chancellor-enact',
+    'veto-response',
+    'finished',
+  ] as const)
+    assert.equal(playerSelection({ ...view, phase }), null);
+  assert.equal(
+    playerSelection({ ...view, phase: 'executive', power: 'peek' }),
+    null,
+  );
+  assert.equal(
+    playerSelection({
+      ...view,
+      players: view.players.map((p) =>
+        p.id === view.me.id ? { ...p, alive: false } : p,
+      ),
+    }),
+    null,
+  );
+  assert.equal(
+    playerSelection({
+      ...view,
+      players: view.players.map((p) =>
+        p.id === view.me.id ? { ...p, departed: true } : p,
+      ),
+    }),
+    null,
+  );
+});
 
 void test('turn guidance identifies only an actionable living seat across every phase', () => {
   const { view } = fixture();

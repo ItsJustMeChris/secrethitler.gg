@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PolicyBoard, PolicyCard, asset } from './game-board';
 import { useGameFeedback } from './game-feedback';
-import { isYourTurn } from '@/lib/game-presentation';
+import { isYourTurn, playerSelection } from '@/lib/game-presentation';
 import {
   Settings2,
   Volume2,
@@ -150,7 +150,9 @@ export default function GameTable() {
   const chatTabRef = useRef('chat');
   const [chatDraft, setChatDraft] = useState('');
   const [lastReadMessage, setLastReadMessage] = useState('');
-  const rosterRef = useRef<HTMLElement>(null);
+  const [privateResult, setPrivateResult] = useState<
+    GameView['me']['notes'][number] | null
+  >(null);
   const [choice, setChoice] = useState<{
     action: Action;
     title: string;
@@ -182,11 +184,14 @@ export default function GameTable() {
       rememberFairness(next.fairness, next.phase);
       if (
         current?.code !== next.code ||
+        current?.me.id !== next.me.id ||
+        current?.fairness?.id !== next.fairness?.id ||
         (current.phase !== 'lobby' && next.phase === 'lobby')
       ) {
         setSeatOpen(false);
         setRoleOpen(false);
         setChoice(null);
+        setPrivateResult(null);
       }
       if (current?.code !== next.code) {
         chatOpenRef.current = false;
@@ -223,6 +228,7 @@ export default function GameTable() {
     setReadAloud(false);
     setChoice(null);
     setSeatOpen(false);
+    setPrivateResult(null);
     changeChatOpen(false);
     setChatDraft('');
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
@@ -467,7 +473,8 @@ export default function GameTable() {
       if (next.left) clear();
       else {
         accept(next);
-        if (next.me.notes.length > current.me.notes.length) setRoleOpen(true);
+        if (next.me.notes.length > current.me.notes.length)
+          setPrivateResult(next.me.notes.at(-1) ?? null);
         if (['nominate', 'power', 'rematch', 'start'].includes(action.type))
           setSeatOpen(false);
         if (action.type === 'portrait') {
@@ -531,13 +538,6 @@ export default function GameTable() {
           .slice(game.messages.findIndex((m) => m.id === lastReadMessage) + 1)
           .filter((m) => m.playerId !== game.me.id).length
       : 0;
-  const focusPlayers = () => {
-    rosterRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    const target = rosterRef.current?.querySelector<HTMLButtonElement>(
-      '[data-player-action]',
-    );
-    (target ?? rosterRef.current)?.focus({ preventScroll: true });
-  };
   const leave = () => {
     if (!game) return;
     choose({
@@ -742,12 +742,42 @@ export default function GameTable() {
             </div>
             {inGame && (
               <div className="turn-action" key={`${game.round}-${game.phase}`}>
+                {privateResult && (
+                  <section
+                    className="floor-private-result"
+                    aria-label="Your private result"
+                  >
+                    <div>
+                      <p className="eyebrow">
+                        <Eye size={14} /> PRIVATE TO YOU
+                      </p>
+                      <p>{privateResult.text}</p>
+                      {privateResult.policies && (
+                        <div className="peek-policies">
+                          {privateResult.policies.map((policy, index) => (
+                            <span className={policy} key={index}>
+                              {index + 1}.{' '}
+                              {policy === 'liberal' ? 'Liberal' : 'Fascist'}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Dismiss private result"
+                      onClick={() => setPrivateResult(null)}
+                    >
+                      <X size={16} />
+                    </Button>
+                  </section>
+                )}
                 <ActionPanel
+                  key={`${game.code}-${game.fairness?.id}-${game.me.id}-${game.round}-${game.phase}-${game.president}-${game.chancellor}-${game.power}`}
                   game={game}
                   busy={busy || !online}
                   act={act}
-                  choose={choose}
-                  onPlayers={focusPlayers}
                 />
                 {coaching && (
                   <details className="coach-peek">
@@ -1061,6 +1091,43 @@ export default function GameTable() {
                           Deal the roles <ArrowRight />
                         </Button>
                       )}
+                      {game.hostId === game.me.id &&
+                        game.players.length > 1 && (
+                          <details className="lobby-player-management">
+                            <summary>Manage players</summary>
+                            {game.players
+                              .filter((p) => p.id !== game.me.id)
+                              .map((p) => (
+                                <div key={p.id}>
+                                  <img
+                                    src={portraitUrl(p.portrait)}
+                                    width="32"
+                                    height="32"
+                                    alt=""
+                                  />
+                                  <span>
+                                    {p.name}
+                                    {p.bot ? ' · AI' : ''}
+                                  </span>
+                                  <Button
+                                    variant="outline"
+                                    disabled={busy || !online}
+                                    onClick={() =>
+                                      choose({
+                                        action: { type: 'kick', target: p.id },
+                                        title: `Remove ${p.name}?`,
+                                        description:
+                                          'They will leave this waiting table.',
+                                      })
+                                    }
+                                    aria-label={`Remove ${p.name}`}
+                                  >
+                                    Remove
+                                  </Button>
+                                </div>
+                              ))}
+                          </details>
+                        )}
                     </>
                   ) : (
                     <>
@@ -1129,12 +1196,7 @@ export default function GameTable() {
         )}
 
         {game && (
-          <section
-            className="players-panel paper"
-            aria-label="Players"
-            ref={rosterRef}
-            tabIndex={-1}
-          >
+          <section className="players-panel paper" aria-label="Players">
             <div className="players-heading">
               <h2>
                 The assembly <span>{game.players.length}/10</span>
@@ -1151,24 +1213,10 @@ export default function GameTable() {
             >
               {game.players.map((p, i) => {
                 const knowledge = playerKnowledge(game, p.id);
-                const eligible =
-                  game.phase === 'nomination' &&
-                  game.president === game.me.id &&
-                  game.eligible.includes(p.id);
-                const targetPower =
-                  game.phase === 'executive' &&
-                  game.president === game.me.id &&
-                  game.power !== 'peek' &&
-                  p.alive &&
-                  p.id !== game.me.id &&
-                  !(
-                    game.power === 'investigate' &&
-                    game.investigated.includes(p.id)
-                  );
                 return (
                   <div
                     key={p.id}
-                    className={`player ${!p.alive ? 'eliminated' : ''} ${p.id === game.president ? 'president-player' : ''} ${eligible || targetPower ? 'actionable' : ''} ${p.id === game.me.id ? 'self-player' : ''}`}
+                    className={`player ${!p.alive ? 'eliminated' : ''} ${p.id === game.president ? 'president-player' : ''} ${p.id === game.me.id ? 'self-player' : ''}`}
                     style={{ animationDelay: `${i * 45}ms` }}
                     title={`${p.name}${knowledge ? ` · ${knowledge.label}` : ''}`}
                   >
@@ -1242,69 +1290,23 @@ export default function GameTable() {
                                           : 'In the chamber'}
                       </span>
                     </div>
-                    {eligible || targetPower ? (
-                      <Button
-                        className="nominate-button"
-                        data-player-action
-                        aria-label={`${eligible ? 'Nominate' : 'Choose'} ${p.name}`}
-                        size="sm"
-                        disabled={busy}
-                        onClick={() =>
-                          choose({
-                            action: eligible
-                              ? { type: 'nominate', target: p.id }
-                              : { type: 'power', target: p.id },
-                            title: eligible
-                              ? `Nominate ${p.name}?`
-                              : `${powerNames[game.power!]}: ${p.name}`,
-                            description: eligible
-                              ? 'The whole chamber will vote on this government.'
-                              : game.power === 'execute'
-                                ? 'This removes them from the game. If they are Hitler, the Liberals win immediately.'
-                                : game.power === 'investigate'
-                                  ? 'Only you will learn their party membership. Hitler appears as a Fascist.'
-                                  : 'They will lead a special election. Normal rotation resumes afterward.',
-                          })
-                        }
-                      >
-                        {eligible ? 'Nominate' : 'Choose'}
-                        <ArrowRight size={14} />
-                      </Button>
-                    ) : p.id === game.president ? (
+                    {p.id === game.president ? (
                       <Crown className="player-icon" />
                     ) : !p.alive ? (
                       <Skull className="player-icon" />
                     ) : game.phase === 'lobby' && p.ready ? (
                       <Check className="player-icon" />
                     ) : null}
-                    {game.phase === 'lobby' &&
-                      game.hostId === game.me.id &&
-                      p.id !== game.me.id && (
-                        <button
-                          className="kick-button"
-                          aria-label={`Remove ${p.name}`}
-                          onClick={() =>
-                            choose({
-                              action: { type: 'kick', target: p.id },
-                              title: `Remove ${p.name}?`,
-                              description:
-                                'They will leave this waiting table.',
-                            })
-                          }
-                        >
-                          <X size={14} />
-                        </button>
-                      )}
                   </div>
                 );
               })}
               {Array.from(
                 { length: Math.max(0, 5 - game.players.length) },
                 (_, i) => (
-                  <button className="empty-seat" key={i} onClick={invite}>
+                  <div className="empty-seat" key={i}>
                     <Plus size={20} />
-                    <span>Invite a friend</span>
-                  </button>
+                    <span>Empty seat</span>
+                  </div>
                 ),
               )}
             </div>
@@ -1979,23 +1981,135 @@ function CoachCard({ game }: { game: View }) {
   );
 }
 
+function PlayerActionPicker({
+  game,
+  selection,
+  busy,
+  submit,
+}: {
+  game: View;
+  selection: NonNullable<ReturnType<typeof playerSelection>>;
+  busy: boolean;
+  submit: (action: Action) => Promise<boolean>;
+}) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = selection.options.find(
+    (option) => option.player.id === selectedId && !option.disabledReason,
+  );
+  const verb =
+    selection.kind === 'nominate'
+      ? 'Nominate'
+      : selection.kind === 'investigate'
+        ? 'Investigate'
+        : selection.kind === 'execute'
+          ? 'Execute'
+          : 'Appoint president';
+  const detail =
+    selection.kind === 'nominate'
+      ? 'The whole table will vote on this government.'
+      : selection.kind === 'investigate'
+        ? 'Only you learn their party membership. Hitler appears as a Fascist.'
+        : selection.kind === 'execute'
+          ? 'This eliminates the player. Executing Hitler wins for the Liberals.'
+          : 'They lead the next election. Normal presidential rotation resumes afterward.';
+  return (
+    <div className="floor-player-picker">
+      <fieldset
+        className="floor-player-options"
+        aria-label="Choose a player for this action"
+      >
+        {selection.options.map(({ player, seat, disabledReason }) => {
+          const knowledge = playerKnowledge(game, player.id);
+          return (
+            <button
+              key={player.id}
+              type="button"
+              className={`floor-player-option ${selected?.player.id === player.id ? 'selected' : ''}`}
+              disabled={busy || !!disabledReason}
+              aria-pressed={selected?.player.id === player.id}
+              aria-label={`${player.name}${disabledReason ? `: ${disabledReason}` : ''}`}
+              onClick={() => setSelectedId(player.id)}
+            >
+              <img
+                src={portraitUrl(player.portrait)}
+                width="36"
+                height="36"
+                alt=""
+              />
+              <span className="floor-player-info">
+                <b>{player.name}</b>
+                <small>
+                  Seat {seat}
+                  {player.bot ? ' · AI' : ''}
+                </small>
+                {disabledReason ? (
+                  <small>{disabledReason}</small>
+                ) : (
+                  knowledge && (
+                    <span className={`known-role ${knowledge.kind}`}>
+                      {knowledge.label}
+                    </span>
+                  )
+                )}
+              </span>
+              {selected?.player.id === player.id && (
+                <Check
+                  className="floor-selected-check"
+                  size={14}
+                  aria-hidden="true"
+                />
+              )}
+            </button>
+          );
+        })}
+      </fieldset>
+      <div className="floor-confirmation">
+        <div>
+          <p>
+            {selected ? (
+              <>
+                <b>{selected.player.name}</b> selected.
+              </>
+            ) : (
+              'Choose a player to continue.'
+            )}
+          </p>
+          {selected && <p className="floor-action-detail">{detail}</p>}
+        </div>
+        <Button
+          className={`action-button ${selection.kind === 'execute' ? 'danger-action' : ''}`}
+          disabled={busy || !selected}
+          onClick={() =>
+            selected &&
+            submit({
+              type: selection.kind === 'nominate' ? 'nominate' : 'power',
+              target: selected.player.id,
+            })
+          }
+        >
+          <Check size={16} /> {busy ? 'Confirming…' : `Confirm · ${verb}`}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function ActionPanel({
   game,
   busy,
   act,
-  choose,
-  onPlayers,
 }: {
   game: View;
   busy: boolean;
-  act: (action: Action) => Promise<boolean>;
-  choose: (choice: {
-    action: Action;
-    title: string;
-    description: string;
-  }) => void;
-  onPlayers: () => void;
+  act: (
+    action: Action,
+    expected?: { phase: GameView['phase']; round: number },
+  ) => Promise<boolean>;
 }) {
+  const [policyIndex, setPolicyIndex] = useState<number | null>(null);
+  const selection = playerSelection(game);
+  const submit = (action: Action) =>
+    act(action, { phase: game.phase, round: game.round });
   const me = game.players.find((p) => p.id === game.me.id)!;
   const president = game.players.find((p) => p.id === game.president);
   const chancellor = game.players.find((p) => p.id === game.chancellor);
@@ -2015,7 +2129,7 @@ function ActionPanel({
       ? 'President, choose your chancellor.'
       : `${president?.name} is choosing a chancellor.`;
     description = isPresident
-      ? 'Choose a highlighted player from the roster.'
+      ? 'Select a player below, then confirm your nomination.'
       : 'Discuss who you trust while the president considers the next government.';
   } else if (game.phase === 'voting') {
     title = `${president?.name} + ${chancellor?.name}`;
@@ -2049,8 +2163,8 @@ function ActionPanel({
     title = `${isPresident ? 'Your power' : `${president?.name}’s power`}: ${powerNames[game.power!]}`;
     description = isPresident
       ? game.power === 'peek'
-        ? 'Privately inspect the next three policies. Read the result in your dossier.'
-        : 'Choose another living player in the assembly. This power must be used.'
+        ? 'Privately inspect the next three policies. Your result will appear here.'
+        : 'Select a player below, then confirm your power.'
       : 'The president must exercise this power before the next election.';
   }
   return (
@@ -2068,20 +2182,20 @@ function ActionPanel({
       {game.phase === 'finished' && <Flag className="victory-mark" size={28} />}
       <h2>{title}</h2>
       <p>{description}</p>
-      {me.alive &&
-        isPresident &&
-        (game.phase === 'nomination' ||
-          (game.phase === 'executive' && game.power !== 'peek')) && (
-          <Button className="action-button" onClick={onPlayers}>
-            <Users /> Choose a player <ArrowRight />
-          </Button>
-        )}
+      {selection && (
+        <PlayerActionPicker
+          game={game}
+          selection={selection}
+          busy={busy}
+          submit={submit}
+        />
+      )}
       {game.phase === 'voting' && me.alive && (
         <div className="ballots">
           <button
             className={`ballot ja ${game.me.ballot === true ? 'selected' : ''}`}
             disabled={busy || game.me.ballot !== null}
-            onClick={() => act({ type: 'vote', yes: true })}
+            onClick={() => submit({ type: 'vote', yes: true })}
             aria-label="Vote Ja, yes"
           >
             <img
@@ -2099,7 +2213,7 @@ function ActionPanel({
           <button
             className={`ballot nein ${game.me.ballot === false ? 'selected' : ''}`}
             disabled={busy || game.me.ballot !== null}
-            onClick={() => act({ type: 'vote', yes: false })}
+            onClick={() => submit({ type: 'vote', yes: false })}
             aria-label="Vote Nein, no"
           >
             <img
@@ -2123,22 +2237,10 @@ function ActionPanel({
               key={`${game.round}-${game.phase}-${i}`}
               style={{ animationDelay: `${i * 90}ms` }}
               aria-label={`${game.phase === 'president-discard' ? 'Discard' : 'Enact'} ${p} policy ${i + 1}`}
-              className={`policy-choice ${p}`}
+              className={`policy-choice ${p} ${policyIndex === i ? 'selected' : ''}`}
               disabled={busy}
-              onClick={() =>
-                choose({
-                  action: {
-                    type:
-                      game.phase === 'president-discard' ? 'discard' : 'enact',
-                    index: i,
-                  },
-                  title: `${game.phase === 'president-discard' ? 'Discard' : 'Enact'} this ${p} policy?`,
-                  description:
-                    game.phase === 'president-discard'
-                      ? 'This policy will be discarded privately. The other two go to the chancellor.'
-                      : 'This policy will be enacted publicly. The other policy is discarded.',
-                })
-              }
+              aria-pressed={policyIndex === i}
+              onClick={() => setPolicyIndex(i)}
             >
               <PolicyCard kind={p} index={i} />
               <span>
@@ -2146,6 +2248,35 @@ function ActionPanel({
               </span>
             </button>
           ))}
+        </div>
+      )}
+      {game.me.hand.length > 0 && game.phase !== 'veto-response' && (
+        <div className="floor-confirmation">
+          <p>
+            {policyIndex === null
+              ? 'Select a policy to continue.'
+              : `${game.me.hand[policyIndex] === 'liberal' ? 'Liberal' : 'Fascist'} policy selected.`}
+          </p>
+          <Button
+            className="action-button"
+            disabled={
+              busy || policyIndex === null || !game.me.hand[policyIndex]
+            }
+            onClick={() =>
+              policyIndex !== null &&
+              submit({
+                type: game.phase === 'president-discard' ? 'discard' : 'enact',
+                index: policyIndex,
+              })
+            }
+          >
+            <Check size={16} />
+            {busy
+              ? 'Confirming…'
+              : game.phase === 'president-discard'
+                ? 'Confirm discard'
+                : 'Confirm enactment'}
+          </Button>
         </div>
       )}
       {game.phase === 'chancellor-enact' &&
@@ -2156,7 +2287,7 @@ function ActionPanel({
             className="action-button"
             variant="outline"
             disabled={busy}
-            onClick={() => act({ type: 'veto' })}
+            onClick={() => submit({ type: 'veto' })}
           >
             Request a veto
           </Button>
@@ -2165,14 +2296,14 @@ function ActionPanel({
         <div className="veto-actions">
           <Button
             disabled={busy}
-            onClick={() => act({ type: 'veto-answer', yes: true })}
+            onClick={() => submit({ type: 'veto-answer', yes: true })}
           >
             Agree to veto
           </Button>
           <Button
             variant="outline"
             disabled={busy}
-            onClick={() => act({ type: 'veto-answer', yes: false })}
+            onClick={() => submit({ type: 'veto-answer', yes: false })}
           >
             Refuse veto
           </Button>
@@ -2182,7 +2313,7 @@ function ActionPanel({
         <Button
           className="action-button"
           disabled={busy}
-          onClick={() => act({ type: 'power' })}
+          onClick={() => submit({ type: 'power' })}
         >
           <Eye /> Inspect policies
         </Button>
@@ -2191,7 +2322,7 @@ function ActionPanel({
         <Button
           className="action-button"
           disabled={busy}
-          onClick={() => act({ type: 'rematch' })}
+          onClick={() => submit({ type: 'rematch' })}
         >
           Open lobby · change players & rematch <ArrowRight />
         </Button>

@@ -19,6 +19,33 @@ export function isYourTurn(game: GameView): boolean {
   );
 }
 
+// The floor offers only actions permitted by the player's existing server projection.
+export function playerSelection(game: GameView) {
+  const actor = game.players.find((p) => p.id === game.me.id);
+  if (!actor?.alive || actor.departed || game.president !== actor.id)
+    return null;
+  const kind =
+    game.phase === 'nomination'
+      ? 'nominate'
+      : game.phase === 'executive' && game.power && game.power !== 'peek'
+        ? game.power
+        : null;
+  if (!kind) return null;
+  return {
+    kind,
+    options: game.players.flatMap((player, index) => {
+      if (!player.alive || player.id === actor.id) return [];
+      const disabledReason =
+        kind === 'nominate' && !game.eligible.includes(player.id)
+          ? 'Term-limited'
+          : kind === 'investigate' && game.investigated.includes(player.id)
+            ? 'Already investigated'
+            : null;
+      return [{ player, seat: index + 1, disabledReason }];
+    }),
+  };
+}
+
 // Presentation observes only the same permitted view as the player. It never delays a move.
 export function tableCue(
   before: GameView | null,
