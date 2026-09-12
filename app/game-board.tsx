@@ -32,39 +32,42 @@ export function PolicyBoard({
           <b>{count}</b> / {total}
         </span>
       </div>
-      <svg
-        className="original-board"
-        viewBox="0 0 1683 650"
-        aria-labelledby={titleId}
-      >
-        <title id={titleId}>
-          {kind} board: {count} of {total} policies enacted.{' '}
-          {liberal
-            ? 'Five policies win.'
-            : powers
-                .map(
-                  (power, i) =>
-                    `Policy ${i + 1}: ${i === 5 ? 'victory' : (power ?? 'no executive power')}${i === 4 ? ', veto unlocked' : ''}`,
-                )
-                .join('. ')}
-        </title>
-        <image href={asset(board)} width="1683" height="650" />
-        {Array.from({ length: count }, (_, i) => (
-          <g key={i} className="enacted-policy">
-            <image
-              href={asset(`board-policy-${kind}`)}
-              x={
-                (1683 *
-                  ((liberal ? 18.2 : 11) + i * (liberal ? 13.54 : 13.6))) /
-                100
-              }
-              y="195"
-              width="168.3"
-              height={(168.3 * 240) / 174}
-            />
-          </g>
-        ))}
-      </svg>
+      <div className="policy-board-art">
+        <svg
+          className="original-board"
+          viewBox="0 0 1683 650"
+          preserveAspectRatio="xMidYMid meet"
+          aria-labelledby={titleId}
+        >
+          <title id={titleId}>
+            {kind} board: {count} of {total} policies enacted.{' '}
+            {liberal
+              ? 'Five policies win.'
+              : powers
+                  .map(
+                    (power, i) =>
+                      `Policy ${i + 1}: ${i === 5 ? 'victory' : (power ?? 'no executive power')}${i === 4 ? ', veto unlocked' : ''}`,
+                  )
+                  .join('. ')}
+          </title>
+          <image href={asset(board)} width="1683" height="650" />
+          {Array.from({ length: count }, (_, i) => (
+            <g key={i} className="enacted-policy">
+              <image
+                href={asset(`board-policy-${kind}`)}
+                x={
+                  (1683 *
+                    ((liberal ? 18.2 : 11) + i * (liberal ? 13.54 : 13.6))) /
+                  100
+                }
+                y="195"
+                width="168.3"
+                height={(168.3 * 240) / 174}
+              />
+            </g>
+          ))}
+        </svg>
+      </div>
     </section>
   );
 }
