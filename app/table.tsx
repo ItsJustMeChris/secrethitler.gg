@@ -1,8 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
+import { PolicyBoard, PolicyCard, asset } from './game-board';
+import { useGameFeedback } from './game-feedback';
+import { isYourTurn } from '@/lib/game-presentation';
 import {
+  Settings2,
+  Volume2,
+  VolumeX,
+  Maximize2,
+  Minimize2,
+  Sparkles,
   ArrowLeft,
   ArrowRight,
   BookOpen,
@@ -54,7 +62,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { coachTip } from '@/lib/coach';
-import type { Action, GameView, Policy, Power } from '@/lib/game';
+import type { Action, GameView, Power } from '@/lib/game';
 import { FairPlayProof, rememberFairness } from './fair-play';
 import { PortraitPicker } from './portrait-picker';
 import { isPortrait, portraitUrl } from '@/lib/portraits';
@@ -79,8 +87,6 @@ const phaseNames: Record<string, string> = {
   executive: 'Executive action',
   finished: 'Game over',
 };
-// Refresh cached print-and-play exports when loading the full-color source pack.
-const asset = (name: string) => `/assets/${name}.png?v=6b210bae`;
 
 async function api(input?: Record<string, unknown>, code?: string) {
   const response = await fetch(
@@ -112,6 +118,11 @@ async function api(input?: Record<string, unknown>, code?: string) {
 
 export default function GameTable() {
   const [game, setGame] = useState<View | null>(null);
+  const feedback = useGameFeedback();
+  const receiveFeedback = feedback.receive;
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [fullScreen, setFullScreen] = useState(false);
+  const [canFullscreen, setCanFullscreen] = useState(false);
   const [name, setName] = useState('');
   const [portrait, setPortrait] = useState(1);
   const [code, setCode] = useState('');
@@ -134,7 +145,6 @@ export default function GameTable() {
   const chatOpenRef = useRef(false);
   const [chatDraft, setChatDraft] = useState('');
   const [lastReadMessage, setLastReadMessage] = useState('');
-  const roomHeadingRef = useRef<HTMLDivElement>(null);
   const rosterRef = useRef<HTMLElement>(null);
   const [choice, setChoice] = useState<{
     action: Action;
@@ -150,30 +160,36 @@ export default function GameTable() {
     setChatOpen(open);
     if (open) setLastReadMessage(gameRef.current?.messages.at(-1)?.id ?? '');
   };
-  const accept = useCallback((next: View) => {
-    const current = gameRef.current;
-    if (current?.code === next.code && current.revision > next.revision) return;
-    rememberFairness(next.previousFairness, 'finished');
-    rememberFairness(next.fairness, next.phase);
-    if (
-      current?.code !== next.code ||
-      (current.phase !== 'lobby' && next.phase === 'lobby')
-    ) {
-      setSeatOpen(false);
-      setRoleOpen(false);
-      setChoice(null);
-    }
-    if (current?.code !== next.code) {
-      chatOpenRef.current = false;
-      setChatOpen(false);
-      setChatDraft('');
-      setLastReadMessage(next.messages.at(-1)?.id ?? '');
-    }
-    if (chatOpenRef.current) setLastReadMessage(next.messages.at(-1)?.id ?? '');
-    gameRef.current = next;
-    setGame(next);
-    setOnline(true);
-  }, []);
+  const accept = useCallback(
+    (next: View) => {
+      const current = gameRef.current;
+      if (current?.code === next.code && current.revision > next.revision)
+        return;
+      receiveFeedback(current, next);
+      rememberFairness(next.previousFairness, 'finished');
+      rememberFairness(next.fairness, next.phase);
+      if (
+        current?.code !== next.code ||
+        (current.phase !== 'lobby' && next.phase === 'lobby')
+      ) {
+        setSeatOpen(false);
+        setRoleOpen(false);
+        setChoice(null);
+      }
+      if (current?.code !== next.code) {
+        chatOpenRef.current = false;
+        setChatOpen(false);
+        setChatDraft('');
+        setLastReadMessage(next.messages.at(-1)?.id ?? '');
+      }
+      if (chatOpenRef.current)
+        setLastReadMessage(next.messages.at(-1)?.id ?? '');
+      gameRef.current = next;
+      setGame(next);
+      setOnline(true);
+    },
+    [receiveFeedback],
+  );
   const clear = () => {
     if (
       gameRef.current &&
@@ -203,6 +219,7 @@ export default function GameTable() {
     if (isPortrait(savedPortrait)) setPortrait(savedPortrait);
     setCoaching(localStorage.getItem('sh-coach') === 'true');
     setVoiceAvailable('speechSynthesis' in window);
+    setCanFullscreen(!!document.fullscreenEnabled);
     const invite = new URLSearchParams(location.search)
       .get('room')
       ?.toUpperCase();
@@ -238,18 +255,20 @@ export default function GameTable() {
   }, [accept]);
 
   useEffect(() => {
-    const heading = roomHeadingRef.current;
-    if (!heading || !game?.code) return;
-    const update = () =>
-      heading.parentElement?.style.setProperty(
-        '--room-header-height',
-        `${heading.offsetHeight}px`,
+    const changed = () => setFullScreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', changed);
+    return () => document.removeEventListener('fullscreenchange', changed);
+  }, []);
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    } catch {
+      setError(
+        'Fullscreen is unavailable here. The table still fits your screen.',
       );
-    const observer = new ResizeObserver(update);
-    observer.observe(heading);
-    update();
-    return () => observer.disconnect();
-  }, [game?.code]);
+    }
+  };
   useEffect(() => {
     if (!game?.code) return;
     const room = game.code;
@@ -496,44 +515,66 @@ export default function GameTable() {
   };
 
   return (
-    <div className={`app-shell ${game ? 'in-room' : ''}`}>
+    <div
+      className={`app-shell ${game ? 'in-room' : 'main-menu'} ${feedback.motion ? 'motion-on' : 'motion-off'}`}
+    >
       <header className="masthead">
-        <Link className="brand" href="/" aria-label="Secret Hitler home">
+        <div className="brand">
           <img
             src={asset('logo-transparent')}
             alt="Secret Hitler"
-            width="114"
-            height="80"
+            width="70"
+            height="49"
           />
           <span>
-            THE ONLINE TABLE
-            <span className="edition">AN UNOFFICIAL ADAPTATION</span>
+            THE ONLINE TABLE<small>5–10 PLAYERS</small>
           </span>
-        </Link>
-        <nav className="header-actions" aria-label="Help">
+        </div>
+        <nav className="header-actions" aria-label="Game controls">
           <span className="table-status">
             <span className={`status-dot ${!online ? 'offline' : ''}`} />
-            {game
-              ? online
-                ? 'Table connected'
-                : 'Reconnecting…'
-              : '5–10 players'}
+            {game ? (online ? 'Connected' : 'Reconnecting') : '5–10 players'}
           </span>
           <Button
             variant="ghost"
-            className="header-button"
+            className="icon-button"
+            aria-label={
+              feedback.sound ? 'Mute game sounds' : 'Enable game sounds'
+            }
+            aria-pressed={feedback.sound}
+            title={feedback.sound ? 'Mute game sounds' : 'Enable game sounds'}
+            onClick={() => void feedback.toggleSound()}
+          >
+            {feedback.sound ? <Volume2 /> : <VolumeX />}
+          </Button>
+          {canFullscreen && (
+            <Button
+              variant="ghost"
+              className="icon-button"
+              aria-label={fullScreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+              title={fullScreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+              onClick={() => void toggleFullscreen()}
+            >
+              {fullScreen ? <Minimize2 /> : <Maximize2 />}
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            className="icon-button"
+            aria-label="How to play"
+            title="How to play"
             onClick={() => setRules(true)}
           >
             <BookOpen />
-            <span>How to play</span>
           </Button>
           <Button
             variant="ghost"
             className="icon-button"
-            aria-label="Fair play and privacy"
-            onClick={() => setPrivacy(true)}
+            aria-label="Game settings"
+            title="Game settings"
+            onClick={() => setSettingsOpen(true)}
           >
-            <ShieldCheck />
+            <Settings2 />
           </Button>
         </nav>
       </header>
@@ -541,7 +582,7 @@ export default function GameTable() {
       <main
         className={`workspace ${game ? `has-room ${game.phase}` : 'start-screen'} ${seatOpen ? 'seat-open' : ''}`}
       >
-        <div className="workspace-heading" ref={roomHeadingRef}>
+        <div className="workspace-heading">
           <div>
             <p className="eyebrow">
               {game
@@ -563,10 +604,11 @@ export default function GameTable() {
               <Button
                 variant="outline"
                 className="invite-button"
-                onClick={() => setSeatOpen(!seatOpen)}
-                aria-pressed={seatOpen}
+                onClick={() => setSeatOpen(true)}
+                aria-expanded={seatOpen}
+                aria-haspopup="dialog"
               >
-                <Users /> {seatOpen ? 'Back to table' : 'Your seat'}
+                <Users /> Your seat
               </Button>
               <Button
                 className="invite-button"
@@ -619,541 +661,439 @@ export default function GameTable() {
           </output>
         )}
 
-        <section className="chamber" aria-label="Game table">
-          <div className="chamber-bar">
-            <span>
-              <span className="status-dot" />
-              {game ? phaseNames[game.phase] : 'THE CHAMBER'}
-            </span>
-            <span>
-              {inGame
-                ? `ROUND ${String(game.round).padStart(2, '0')}`
-                : 'ORIGINAL RULES · 5–10 PLAYERS'}
-            </span>
-          </div>
-          {game && (
-            <details className="learning-tools" open={coaching || undefined}>
-              <summary>
-                Coach & AI controls {game.practice?.paused ? '· AI paused' : ''}
-              </summary>
-              <div className="learning-toolbar">
-                <label className="coach-toggle" htmlFor="coach-switch">
-                  <BookOpen size={17} /> Coach
-                  <Switch
-                    id="coach-switch"
-                    aria-label="Show learning coach"
-                    checked={coaching}
-                    onCheckedChange={(value) => {
-                      setCoaching(value);
-                      localStorage.setItem('sh-coach', String(value));
-                    }}
-                  />
-                </label>
-                {game.practice && (
-                  <span className="ai-table-label">
-                    <Bot size={17} /> {game.players.filter((p) => p.bot).length}{' '}
-                    AI players
-                  </span>
+        {!game && (
+          <section className="start-intro" aria-label="Secret Hitler">
+            <img
+              className="menu-logo"
+              src={asset('logo-transparent')}
+              alt="Secret Hitler"
+              width="420"
+              height="293"
+            />
+            <p className="intro-line">The original game of hidden loyalties.</p>
+            <div className="intro-meta">
+              <span>
+                <Users size={16} />
+                5–10 players
+              </span>
+              <span>
+                <Bot size={16} />
+                Friends + AI
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              className="learn-button"
+              onClick={() => setRules(true)}
+            >
+              <BookOpen size={18} />
+              Learn the rules
+            </Button>
+          </section>
+        )}
+        {inGame && (
+          <section
+            className={`chamber ${isYourTurn(game) ? 'your-turn' : ''}`}
+            aria-label="Game table"
+          >
+            <div className="chamber-bar">
+              <span>
+                <span className="status-dot" />
+                {phaseNames[game.phase]}
+              </span>
+              <span className={isYourTurn(game) ? 'turn-tag' : ''}>
+                {isYourTurn(game)
+                  ? 'YOUR TURN'
+                  : `ROUND ${String(game.round).padStart(2, '0')}`}
+              </span>
+            </div>
+            {inGame && (
+              <div className="turn-action" key={`${game.round}-${game.phase}`}>
+                <ActionPanel
+                  game={game}
+                  busy={busy || !online}
+                  act={act}
+                  choose={choose}
+                  onPlayers={focusPlayers}
+                />
+                {coaching && (
+                  <details className="coach-peek">
+                    <summary>
+                      <BookOpen size={14} />
+                      Coach · {coachTip(game).title}
+                    </summary>
+                    <CoachCard game={game} />
+                  </details>
                 )}
-                {game.practice && voiceAvailable && (
-                  <label className="coach-toggle" htmlFor="voice-switch">
-                    Read AI aloud{' '}
-                    <Switch
-                      id="voice-switch"
-                      aria-label="Read AI dialogue aloud"
-                      checked={readAloud}
-                      onCheckedChange={(value) => {
-                        setReadAloud(value);
-                        if (!value) window.speechSynthesis.cancel();
-                      }}
-                    />
-                  </label>
-                )}
-                {game.practice &&
-                  game.hostId === game.me.id &&
-                  !['lobby', 'finished'].includes(game.phase) && (
-                    <div className="ai-controls">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={busy || !online}
-                        onClick={() =>
-                          act({
-                            type: 'practice-settings',
-                            paused: !game.practice!.paused,
-                          })
-                        }
-                      >
-                        {game.practice.paused ? <Play /> : <Pause />}
-                        {game.practice.paused ? 'Resume AI' : 'Pause AI'}
-                      </Button>
-                      {game.practice.paused && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={busy || !online}
-                          onClick={stepBots}
-                        >
-                          <StepForward /> One step
-                        </Button>
-                      )}
-                      <Select
-                        value={game.practice.pace}
-                        onValueChange={(v) => {
-                          if (v === 'normal' || v === 'fast')
-                            void act({ type: 'practice-settings', pace: v });
-                        }}
-                        disabled={busy || !online}
-                      >
-                        <SelectTrigger aria-label="AI pace" className="ai-pace">
-                          <SelectValue>
-                            {game.practice.pace === 'fast'
-                              ? 'Fast pace'
-                              : 'Normal pace'}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="normal">Normal pace</SelectItem>
-                          <SelectItem value="fast">Fast pace</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
               </div>
-              {coaching && <CoachCard game={game} />}
-              {game.practice?.paused && game.phase !== 'finished' && (
-                <p className="ai-paused-note">
-                  AI paused. Human turns are still available. The host can
-                  resume or advance one AI step.
-                </p>
-              )}
-              {game.practice && game.messages.length > 0 && (
-                <div className="table-talk-preview">
-                  <MessageCircle size={17} />
-                  <p>
-                    <b>{game.messages.at(-1)!.name}:</b>{' '}
-                    {game.messages.at(-1)!.text}
-                  </p>
-                  <button
-                    className="text-button"
-                    onClick={() => changeChatOpen(true)}
-                  >
-                    Chat <ArrowRight size={14} />
-                  </button>
-                </div>
-              )}
-            </details>
-          )}
-          {inGame && (
-            <div className="turn-action">
-              <ActionPanel
-                game={game}
-                busy={busy || !online}
-                act={act}
-                choose={choose}
-                onPlayers={focusPlayers}
+            )}
+            <div className="board-surface">
+              <PolicyBoard
+                kind="liberal"
+                count={game?.liberal ?? 0}
+                players={
+                  game?.initialCount || Math.max(game?.players.length ?? 5, 5)
+                }
               />
-            </div>
-          )}
-          <div className="board-surface">
-            {!inGame && (
-              <div className="table-invitation">
-                <span className="fine-line" />
-                <span>Two parties. One secret.</span>
-                <span className="fine-line" />
-              </div>
-            )}
-            <PolicyBoard
-              kind="liberal"
-              count={game?.liberal ?? 0}
-              players={
-                game?.initialCount || Math.max(game?.players.length ?? 5, 5)
-              }
-            />
-            <div className="board-divider">
-              <span />{' '}
-              <span className="vs-label">THE FATE OF THE REPUBLIC</span>{' '}
-              <span />
-            </div>
-            <PolicyBoard
-              kind="fascist"
-              count={game?.fascist ?? 0}
-              players={
-                game?.initialCount || Math.max(game?.players.length ?? 5, 5)
-              }
-            />
-            <div className="deck-tracker">
-              <div className="deck-count">
-                <FileText size={20} />
-                <span>
-                  <b>{inGame ? game.drawCount : 17}</b> draw
-                  <span className="muted">
-                    {' '}
-                    / {game?.discardCount ?? 0} discarded
-                  </span>
-                </span>
-              </div>
-              <div className="election-tracker">
-                <span>ELECTION TRACKER</span>
-                <div className="tracker-steps">
-                  {[0, 1, 2, 3].map((n) => (
-                    <span
-                      key={n}
-                      title={
-                        n === 3
-                          ? 'Chaos: enact the top policy'
-                          : `${n} failed governments`
-                      }
-                      className={`tracker-dot ${n === (game?.tracker ?? 0) ? 'current' : ''}`}
-                    >
-                      {n === 3 ? <Flag size={12} /> : n}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-            {!inGame && (
-              <div className="sealed-envelopes" aria-hidden="true">
-                <div className="sealed-card one">
-                  <LockKeyhole />
-                  <span>SECRET ROLE</span>
-                </div>
-                <div className="sealed-card two">
-                  <LockKeyhole />
-                  <span>SECRET ROLE</span>
-                </div>
-                <p>
-                  Your allegiances are sealed.
-                  <br />
-                  <span>Keep your friends close.</span>
-                </p>
-              </div>
-            )}
-          </div>
-          {!inGame && (
-            <div className="chamber-foot">
-              <ShieldCheck size={17} />
-              <span>Secret roles. Sealed ballots. The original game.</span>
-              <button onClick={() => setRules(true)}>
-                Know the rules <ArrowRight size={15} />
-              </button>
-            </div>
-          )}
-        </section>
-
-        <aside
-          className="side-panel"
-          aria-label={game ? 'Your seat' : 'Create or join a table'}
-        >
-          {!game ? (
-            <div className="entry-card paper">
-              <div className="paper-top">
-                <span>YOUR INVITATION</span>
-                <LockKeyhole size={17} />
-              </div>
-              <h2>The table awaits.</h2>
-              <p>
-                Play with friends, AI opponents, or a mix of both. Learn the
-                game on your own, too.
-              </p>
-              <Tabs
-                value={entry}
-                onValueChange={(v) => setEntry(v as 'create' | 'join' | 'solo')}
-              >
-                <TabsList className="entry-tabs">
-                  <TabsTrigger value="create">Create</TabsTrigger>
-                  <TabsTrigger value="join">Join</TabsTrigger>
-                  <TabsTrigger value="solo">
-                    <Bot size={16} /> Play solo
-                  </TabsTrigger>
-                </TabsList>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void enter(entry);
-                  }}
-                >
-                  <label className="field-label" htmlFor="display-name">
-                    YOUR DISPLAY NAME
-                  </label>
-                  <input
-                    id="display-name"
-                    autoComplete="off"
-                    minLength={2}
-                    maxLength={24}
-                    placeholder="What should we call you?"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                  />
-                  {entry === 'join' && (
-                    <>
-                      <label className="field-label" htmlFor="room-code">
-                        ROOM CODE
-                      </label>
-                      <input
-                        id="room-code"
-                        className="code-input"
-                        autoCapitalize="characters"
-                        autoComplete="off"
-                        spellCheck={false}
-                        minLength={8}
-                        maxLength={9}
-                        placeholder="ABCD EFGH"
-                        value={code}
-                        onChange={(e) => setCode(e.target.value.toUpperCase())}
-                        required
-                      />
-                    </>
-                  )}
-                  {entry === 'solo' && (
-                    <div className="solo-options">
-                      <label
-                        className="field-label"
-                        id="solo-size-label"
-                        htmlFor="solo-size"
-                      >
-                        TABLE SIZE
-                      </label>
-                      <Select
-                        value={seats}
-                        onValueChange={(v) => {
-                          if (v) setSeats(v);
-                        }}
-                      >
-                        <SelectTrigger
-                          id="solo-size"
-                          aria-labelledby="solo-size-label"
-                          className="solo-size"
-                        >
-                          <SelectValue>
-                            {seats} players · you + {Number(seats) - 1} AI
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[5, 6, 7, 8, 9, 10].map((n) => (
-                            <SelectItem key={n} value={String(n)}>
-                              {n} players · you + {n - 1} AI
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p>
-                        Original rules, secret roles, and a coach you can turn
-                        off. Five players is a good first table.
-                      </p>
-                    </div>
-                  )}
-                  <PortraitPicker
-                    value={portrait}
-                    onChange={setPortrait}
-                    disabled={busy || restoring}
-                  />
-                  <Button
-                    className="primary-button"
-                    type="submit"
-                    disabled={busy || restoring}
-                  >
-                    {busy
-                      ? 'Taking your seat…'
-                      : restoring
-                        ? 'Checking your seat…'
-                        : entry === 'create'
-                          ? 'Create private table'
-                          : entry === 'solo'
-                            ? 'Deal me in with AI'
-                            : 'Join the table'}
-                    {!busy && <ArrowRight size={18} />}
-                  </Button>
-                </form>
-              </Tabs>
-              <div className="entry-note">
-                <LockKeyhole size={14} />
-                <span>
-                  {entry === 'solo'
-                    ? 'No waiting for other players. Your seat reconnects on refresh.'
-                    : entry === 'create'
-                      ? 'Invite friends and add AI to any empty seat, up to 10 players.'
-                      : 'Use the code or link your host shared with you.'}
-                </span>
-              </div>
-              <div className="entry-specs">
-                <span>
-                  <Users size={16} /> 5–10 players
-                </span>
-                <span>45 min</span>
-                <span>Ages 13+</span>
-              </div>
-              <div className="new-player">
-                <BookOpen size={22} />
-                <div>
-                  <b>First time at the table?</b>
-                  <button onClick={() => setRules(true)}>
-                    Read the field guide <ArrowRight size={14} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="seat-card paper">
-                <div className="paper-top">
+              <PolicyBoard
+                kind="fascist"
+                count={game?.fascist ?? 0}
+                players={
+                  game?.initialCount || Math.max(game?.players.length ?? 5, 5)
+                }
+              />
+              <div className="deck-tracker">
+                <div className="deck-count">
+                  <FileText size={20} />
                   <span>
-                    YOUR SEAT ·{' '}
-                    {String(
-                      game.players.findIndex((p) => p.id === game.me.id) + 1,
-                    ).padStart(2, '0')}
+                    <b>{inGame ? game.drawCount : 17}</b> draw
+                    <span className="muted">
+                      {' '}
+                      / {game?.discardCount ?? 0} discarded
+                    </span>
                   </span>
-                  {game.hostId === game.me.id ? (
-                    <Crown size={18} />
-                  ) : (
-                    <LockKeyhole size={18} />
-                  )}
                 </div>
-                <div className="seat-identity">
-                  <img
-                    src={portraitUrl(me?.portrait ?? portrait)}
-                    width="64"
-                    height="64"
-                    alt="Your chosen portrait"
-                  />
-                  <h2>{me?.name}</h2>
+                <div className="election-tracker">
+                  <span>ELECTION TRACKER</span>
+                  <div className="tracker-steps">
+                    {[0, 1, 2, 3].map((n) => (
+                      <span
+                        key={n}
+                        title={
+                          n === 3
+                            ? 'Chaos: enact the top policy'
+                            : `${n} failed governments`
+                        }
+                        className={`tracker-dot ${n === (game?.tracker ?? 0) ? 'current' : ''}`}
+                      >
+                        {n === 3 ? <Flag size={12} /> : n}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-                {game.phase === 'lobby' ? (
-                  <>
-                    <p>
-                      {game.players.length < 5
-                        ? `${5 - game.players.length} more ${game.players.length === 4 ? 'player' : 'players'} needed to begin.`
-                        : `${game.players.filter((p) => p.ready).length} of ${game.players.length} players ready.`}
-                    </p>
-                    <details className="change-portrait">
-                      <summary>Change your picture</summary>
-                      <PortraitPicker
-                        value={me?.portrait ?? portrait}
-                        onChange={(value) =>
-                          void act({ type: 'portrait', portrait: value })
-                        }
-                        disabled={busy}
-                      />
-                    </details>
-                    <Button
-                      className={`primary-button ${me?.ready ? 'ready-button' : ''}`}
-                      disabled={busy}
-                      onClick={() => act({ type: 'ready' })}
-                    >
-                      {me?.ready ? <CheckCheck /> : <Check />}
-                      {me?.ready ? 'Ready — click to unready' : 'I’m ready'}
-                    </Button>
-                    {game.hostId === game.me.id && (
-                      <Button
-                        variant="outline"
-                        className="add-bot-button"
-                        disabled={busy || game.players.length >= 10}
-                        onClick={() => act({ type: 'add-bot' })}
-                      >
-                        <Bot />{' '}
-                        {game.players.length >= 10
-                          ? 'Table full · 10 players'
-                          : 'Add AI player'}
-                      </Button>
+              </div>
+            </div>
+            {feedback.cue && (
+              <output
+                className={`table-cue ${feedback.cue.party ?? ''} cue-${feedback.cue.kind}`}
+                key={feedback.cue.id}
+              >
+                <span className="cue-rule" />
+                <b>{feedback.cue.title}</b>
+                <span>{feedback.cue.detail}</span>
+              </output>
+            )}
+          </section>
+        )}
+
+        {(!game || game.phase === 'lobby') && (
+          <aside
+            className="side-panel"
+            aria-label={game ? 'Your seat' : 'Create or join a table'}
+          >
+            {!game ? (
+              <div className="entry-card paper">
+                <div className="paper-top">
+                  <span>YOUR INVITATION</span>
+                  <LockKeyhole size={17} />
+                </div>
+                <h2>Take your seat</h2>
+                <p>Invite your friends. Fill the empty seats with AI.</p>
+                <Tabs
+                  value={entry}
+                  onValueChange={(v) =>
+                    setEntry(v as 'create' | 'join' | 'solo')
+                  }
+                >
+                  <TabsList className="entry-tabs">
+                    <TabsTrigger value="create">Create</TabsTrigger>
+                    <TabsTrigger value="join">Join</TabsTrigger>
+                    <TabsTrigger value="solo">
+                      <Bot size={16} /> Play solo
+                    </TabsTrigger>
+                  </TabsList>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void enter(entry);
+                    }}
+                  >
+                    <label className="field-label" htmlFor="display-name">
+                      YOUR DISPLAY NAME
+                    </label>
+                    <input
+                      id="display-name"
+                      autoComplete="off"
+                      minLength={2}
+                      maxLength={24}
+                      placeholder="What should we call you?"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                    />
+                    {entry === 'join' && (
+                      <>
+                        <label className="field-label" htmlFor="room-code">
+                          ROOM CODE
+                        </label>
+                        <input
+                          id="room-code"
+                          className="code-input"
+                          autoCapitalize="characters"
+                          autoComplete="off"
+                          spellCheck={false}
+                          minLength={8}
+                          maxLength={9}
+                          placeholder="ABCD EFGH"
+                          value={code}
+                          onChange={(e) =>
+                            setCode(e.target.value.toUpperCase())
+                          }
+                          required
+                        />
+                      </>
                     )}
-                    {game.hostId === game.me.id && game.players.length < 10 && (
-                      <Button
-                        variant="ghost"
-                        className="fill-bots-button"
-                        disabled={busy}
-                        onClick={() => act({ type: 'fill-bots' })}
-                      >
-                        Fill all empty seats with AI · 10 players
-                      </Button>
-                    )}
-                    {game.hostId === game.me.id && (
-                      <Button
-                        className="start-button"
-                        disabled={
-                          busy ||
-                          game.players.length < 5 ||
-                          !game.players.every((p) => p.ready)
-                        }
-                        onClick={() => act({ type: 'start' })}
-                      >
-                        Deal the roles <ArrowRight />
-                      </Button>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <p>
-                      {!me?.alive && game.phase !== 'finished'
-                        ? 'You were executed. Watch silently until the game ends.'
-                        : 'Your allegiance is yours to keep.'}
-                    </p>
-                    <Button
-                      variant="outline"
-                      className="role-button"
-                      onClick={() => setRoleOpen(true)}
-                    >
-                      <Eye /> View secret dossier <LockKeyhole size={15} />
-                    </Button>
-                    <div className="seat-assignment">
-                      {game.president === game.me.id ? (
-                        <>
-                          <Crown /> President
-                        </>
-                      ) : game.chancellor === game.me.id ? (
-                        <>
-                          <Flag /> Chancellor
-                        </>
-                      ) : (
-                        <>
-                          <Users />{' '}
-                          {me?.alive ? 'Member of the chamber' : 'Eliminated'}
-                        </>
-                      )}
-                    </div>
-                    {game.phase === 'finished' && (
-                      <div className="next-match-controls">
-                        {game.hostId === game.me.id ? (
-                          <Button
-                            className="start-button"
-                            disabled={busy}
-                            onClick={() => act({ type: 'rematch' })}
+                    {entry === 'solo' && (
+                      <div className="solo-options">
+                        <label
+                          className="field-label"
+                          id="solo-size-label"
+                          htmlFor="solo-size"
+                        >
+                          TABLE SIZE
+                        </label>
+                        <Select
+                          value={seats}
+                          onValueChange={(v) => {
+                            if (v) setSeats(v);
+                          }}
+                        >
+                          <SelectTrigger
+                            id="solo-size"
+                            aria-labelledby="solo-size-label"
+                            className="solo-size"
                           >
-                            Open lobby <ArrowRight />
-                          </Button>
-                        ) : (
-                          <p>
-                            The host can reopen the lobby for another match.
-                          </p>
-                        )}
-                        <p>Add friends or AI, change seats, then deal again.</p>
+                            <SelectValue>
+                              {seats} players · you + {Number(seats) - 1} AI
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[5, 6, 7, 8, 9, 10].map((n) => (
+                              <SelectItem key={n} value={String(n)}>
+                                {n} players · you + {n - 1} AI
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p>
+                          Original rules, secret roles, and a coach you can turn
+                          off. Five players is a good first table.
+                        </p>
                       </div>
                     )}
-                  </>
-                )}
-                <div className="seat-utility-actions">
-                  <Button variant="outline" onClick={invite}>
-                    <Copy /> Invite friends
-                  </Button>
-                  <Button variant="outline" onClick={leave} disabled={busy}>
-                    <ArrowLeft /> Leave table
-                  </Button>
+                    <PortraitPicker
+                      value={portrait}
+                      onChange={setPortrait}
+                      disabled={busy || restoring}
+                    />
+                    <Button
+                      className="primary-button"
+                      type="submit"
+                      disabled={busy || restoring}
+                    >
+                      {busy
+                        ? 'Taking your seat…'
+                        : restoring
+                          ? 'Checking your seat…'
+                          : entry === 'create'
+                            ? 'Create private table'
+                            : entry === 'solo'
+                              ? 'Deal me in with AI'
+                              : 'Join the table'}
+                      {!busy && <ArrowRight size={18} />}
+                    </Button>
+                  </form>
+                </Tabs>
+                <div className="entry-note">
+                  <LockKeyhole size={14} />
+                  <span>
+                    {entry === 'solo'
+                      ? 'No waiting for other players. Your seat reconnects on refresh.'
+                      : entry === 'create'
+                        ? 'Invite friends and add AI to any empty seat, up to 10 players.'
+                        : 'Use the code or link your host shared with you.'}
+                  </span>
+                </div>
+                <div className="entry-specs">
+                  <span>
+                    <Users size={16} /> 5–10 players
+                  </span>
+                  <span>45 min</span>
+                  <span>Ages 13+</span>
+                </div>
+                <div className="new-player">
+                  <BookOpen size={22} />
+                  <div>
+                    <b>First time at the table?</b>
+                    <button onClick={() => setRules(true)}>
+                      Read the field guide <ArrowRight size={14} />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </>
-          )}
-          {!game && (
-            <div className="official-art">
-              <img
-                src={asset('official-box-art')}
-                alt="Secret Hitler's original illustrated game box"
-                width="2560"
-                height="1323"
-              />
-              <span>THE ORIGINAL GAME. A SHARED TABLE.</span>
-            </div>
-          )}
-        </aside>
+            ) : (
+              <>
+                <div className="seat-card paper">
+                  <div className="paper-top">
+                    <span>
+                      YOUR SEAT ·{' '}
+                      {String(
+                        game.players.findIndex((p) => p.id === game.me.id) + 1,
+                      ).padStart(2, '0')}
+                    </span>
+                    {game.hostId === game.me.id ? (
+                      <Crown size={18} />
+                    ) : (
+                      <LockKeyhole size={18} />
+                    )}
+                  </div>
+                  <div className="seat-identity">
+                    <img
+                      src={portraitUrl(me?.portrait ?? portrait)}
+                      width="64"
+                      height="64"
+                      alt="Your chosen portrait"
+                    />
+                    <h2>{me?.name}</h2>
+                  </div>
+                  {game.phase === 'lobby' ? (
+                    <>
+                      <p>
+                        {game.players.length < 5
+                          ? `${5 - game.players.length} more ${game.players.length === 4 ? 'player' : 'players'} needed to begin.`
+                          : `${game.players.filter((p) => p.ready).length} of ${game.players.length} players ready.`}
+                      </p>
+                      <details className="change-portrait">
+                        <summary>Change your picture</summary>
+                        <PortraitPicker
+                          value={me?.portrait ?? portrait}
+                          onChange={(value) =>
+                            void act({ type: 'portrait', portrait: value })
+                          }
+                          disabled={busy}
+                        />
+                      </details>
+                      <Button
+                        className={`primary-button ${me?.ready ? 'ready-button' : ''}`}
+                        disabled={busy}
+                        onClick={() => act({ type: 'ready' })}
+                      >
+                        {me?.ready ? <CheckCheck /> : <Check />}
+                        {me?.ready ? 'Ready — click to unready' : 'I’m ready'}
+                      </Button>
+                      {game.hostId === game.me.id && (
+                        <Button
+                          variant="outline"
+                          className="add-bot-button"
+                          disabled={busy || game.players.length >= 10}
+                          onClick={() => act({ type: 'add-bot' })}
+                        >
+                          <Bot />{' '}
+                          {game.players.length >= 10
+                            ? 'Table full · 10 players'
+                            : 'Add AI player'}
+                        </Button>
+                      )}
+                      {game.hostId === game.me.id &&
+                        game.players.length < 10 && (
+                          <Button
+                            variant="ghost"
+                            className="fill-bots-button"
+                            disabled={busy}
+                            onClick={() => act({ type: 'fill-bots' })}
+                          >
+                            Fill all empty seats with AI · 10 players
+                          </Button>
+                        )}
+                      {game.hostId === game.me.id && (
+                        <Button
+                          className="start-button"
+                          disabled={
+                            busy ||
+                            game.players.length < 5 ||
+                            !game.players.every((p) => p.ready)
+                          }
+                          onClick={() => act({ type: 'start' })}
+                        >
+                          Deal the roles <ArrowRight />
+                        </Button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <p>
+                        {!me?.alive && game.phase !== 'finished'
+                          ? 'You were executed. Watch silently until the game ends.'
+                          : 'Your allegiance is yours to keep.'}
+                      </p>
+                      <Button
+                        variant="outline"
+                        className="role-button"
+                        onClick={() => setRoleOpen(true)}
+                      >
+                        <Eye /> View secret dossier <LockKeyhole size={15} />
+                      </Button>
+                      <div className="seat-assignment">
+                        {game.president === game.me.id ? (
+                          <>
+                            <Crown /> President
+                          </>
+                        ) : game.chancellor === game.me.id ? (
+                          <>
+                            <Flag /> Chancellor
+                          </>
+                        ) : (
+                          <>
+                            <Users />{' '}
+                            {me?.alive ? 'Member of the chamber' : 'Eliminated'}
+                          </>
+                        )}
+                      </div>
+                      {game.phase === 'finished' && (
+                        <div className="next-match-controls">
+                          {game.hostId === game.me.id ? (
+                            <Button
+                              className="start-button"
+                              disabled={busy}
+                              onClick={() => act({ type: 'rematch' })}
+                            >
+                              Open lobby <ArrowRight />
+                            </Button>
+                          ) : (
+                            <p>
+                              The host can reopen the lobby for another match.
+                            </p>
+                          )}
+                          <p>
+                            Add friends or AI, change seats, then deal again.
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  <div className="seat-utility-actions">
+                    <Button variant="outline" onClick={invite}>
+                      <Copy /> Invite friends
+                    </Button>
+                    <Button variant="outline" onClick={leave} disabled={busy}>
+                      <ArrowLeft /> Leave table
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </aside>
+        )}
 
         {game && (
           <section
@@ -1172,7 +1112,10 @@ export default function GameTable() {
                   : `${game.players.filter((p) => p.alive).length} IN PLAY`}
               </span>
             </div>
-            <div className="players-grid">
+            <div
+              className="players-grid"
+              key={`${game.code}-${game.initialCount}`}
+            >
               {game.players.map((p, i) => {
                 const knowledge = playerKnowledge(game, p.id);
                 const eligible =
@@ -1192,7 +1135,8 @@ export default function GameTable() {
                 return (
                   <div
                     key={p.id}
-                    className={`player ${!p.alive ? 'eliminated' : ''} ${p.id === game.president ? 'president-player' : ''} ${eligible || targetPower ? 'actionable' : ''}`}
+                    className={`player ${!p.alive ? 'eliminated' : ''} ${p.id === game.president ? 'president-player' : ''} ${eligible || targetPower ? 'actionable' : ''} ${p.id === game.me.id ? 'self-player' : ''}`}
+                    style={{ animationDelay: `${i * 45}ms` }}
                     title={`${p.name}${knowledge ? ` · ${knowledge.label}` : ''}`}
                   >
                     <div className="player-number">
@@ -1237,7 +1181,9 @@ export default function GameTable() {
                       )}
                       <span>
                         {game.phase === 'finished'
-                          ? p.role
+                          ? p.alive
+                            ? 'Survived'
+                            : 'Executed'
                           : p.departed
                             ? 'Away · seat reserved'
                             : !p.alive
@@ -1374,6 +1320,278 @@ export default function GameTable() {
         </Popover>
       )}
 
+      {game && (
+        <div className="game-dock">
+          <span className="dock-status">
+            {game.phase === 'lobby'
+              ? 'WAITING FOR THE DEAL'
+              : game.phase === 'finished'
+                ? 'MATCH COMPLETE'
+                : `${game.drawCount} IN DECK · ${game.discardCount} DISCARDED`}
+          </span>
+          <Button
+            variant="ghost"
+            className="dock-button"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <BookOpen size={16} />
+            <span>Coach & AI</span>
+            {game.practice?.paused && <Pause size={14} />}
+          </Button>
+        </div>
+      )}
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="guide-dialog paper settings-dialog">
+          <DialogHeader>
+            <p className="eyebrow">YOUR EXPERIENCE</p>
+            <DialogTitle>Game settings</DialogTitle>
+            <DialogDescription>Settle into the table.</DialogDescription>
+          </DialogHeader>
+          <div className="settings-row">
+            <span>
+              <Volume2 size={18} />
+              Game sounds
+              <small>Soft cues for deals, votes, and policies.</small>
+            </span>
+            <Switch
+              aria-label="Game sounds"
+              checked={feedback.sound}
+              onCheckedChange={() => void feedback.toggleSound()}
+            />
+          </div>
+          <div className="settings-row">
+            <span>
+              <Sparkles size={18} />
+              Animations
+              <small>
+                Your device’s reduced-motion preference is also respected.
+              </small>
+            </span>
+            <Switch
+              aria-label="Game animations"
+              checked={feedback.motion}
+              onCheckedChange={feedback.setMotion}
+            />
+          </div>
+          {game && (
+            <div className="learning-tools">
+              {' '}
+              <div className="learning-toolbar">
+                <label className="coach-toggle" htmlFor="coach-switch">
+                  <BookOpen size={17} /> Coach
+                  <Switch
+                    id="coach-switch"
+                    aria-label="Show learning coach"
+                    checked={coaching}
+                    onCheckedChange={(value) => {
+                      setCoaching(value);
+                      localStorage.setItem('sh-coach', String(value));
+                    }}
+                  />
+                </label>
+                {game.practice && (
+                  <span className="ai-table-label">
+                    <Bot size={17} /> {game.players.filter((p) => p.bot).length}{' '}
+                    AI players
+                  </span>
+                )}
+                {game.practice && voiceAvailable && (
+                  <label className="coach-toggle" htmlFor="voice-switch">
+                    Read AI aloud{' '}
+                    <Switch
+                      id="voice-switch"
+                      aria-label="Read AI dialogue aloud"
+                      checked={readAloud}
+                      onCheckedChange={(value) => {
+                        setReadAloud(value);
+                        if (!value) window.speechSynthesis.cancel();
+                      }}
+                    />
+                  </label>
+                )}
+                {game.practice &&
+                  game.hostId === game.me.id &&
+                  !['lobby', 'finished'].includes(game.phase) && (
+                    <div className="ai-controls">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={busy || !online}
+                        onClick={() =>
+                          act({
+                            type: 'practice-settings',
+                            paused: !game.practice!.paused,
+                          })
+                        }
+                      >
+                        {game.practice.paused ? <Play /> : <Pause />}
+                        {game.practice.paused ? 'Resume AI' : 'Pause AI'}
+                      </Button>
+                      {game.practice.paused && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={busy || !online}
+                          onClick={stepBots}
+                        >
+                          <StepForward /> One step
+                        </Button>
+                      )}
+                      <Select
+                        value={game.practice.pace}
+                        onValueChange={(v) => {
+                          if (v === 'normal' || v === 'fast')
+                            void act({ type: 'practice-settings', pace: v });
+                        }}
+                        disabled={busy || !online}
+                      >
+                        <SelectTrigger aria-label="AI pace" className="ai-pace">
+                          <SelectValue>
+                            {game.practice.pace === 'fast'
+                              ? 'Fast pace'
+                              : 'Normal pace'}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="normal">Normal pace</SelectItem>
+                          <SelectItem value="fast">Fast pace</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+              </div>
+              {coaching && <CoachCard game={game} />}
+              {game.practice?.paused && game.phase !== 'finished' && (
+                <p className="ai-paused-note">
+                  AI paused. Human turns are still available. The host can
+                  resume or advance one AI step.
+                </p>
+              )}
+              {game.practice && game.messages.length > 0 && (
+                <div className="table-talk-preview">
+                  <MessageCircle size={17} />
+                  <p>
+                    <b>{game.messages.at(-1)!.name}:</b>{' '}
+                    {game.messages.at(-1)!.text}
+                  </p>
+                  <button
+                    className="text-button"
+                    onClick={() => {
+                      setSettingsOpen(false);
+                      changeChatOpen(true);
+                    }}
+                  >
+                    Chat <ArrowRight size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="settings-links">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSettingsOpen(false);
+                setRules(true);
+              }}
+            >
+              <BookOpen />
+              How to play
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSettingsOpen(false);
+                setPrivacy(true);
+              }}
+            >
+              <ShieldCheck />
+              Fair play & credits
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={seatOpen} onOpenChange={setSeatOpen}>
+        <DialogContent className="paper seat-dialog">
+          <DialogHeader>
+            <p className="eyebrow">YOUR PLACE AT THE TABLE</p>
+            <DialogTitle>{me?.name ?? 'Your seat'}</DialogTitle>
+            <DialogDescription>
+              {game?.phase === 'lobby'
+                ? 'Choose your portrait before the deal.'
+                : 'Your identity and private information.'}
+            </DialogDescription>
+          </DialogHeader>
+          {game && (
+            <>
+              <div className="seat-profile">
+                <img
+                  src={portraitUrl(me?.portrait ?? 1)}
+                  alt="Your portrait"
+                  width="96"
+                  height="96"
+                />
+                <div>
+                  <b>
+                    Seat{' '}
+                    {game.players.findIndex((p) => p.id === game.me.id) + 1}
+                  </b>
+                  <span>
+                    {game.hostId === game.me.id
+                      ? 'Table host'
+                      : 'Member of the chamber'}
+                  </span>
+                  {game.me.role && (
+                    <strong className={`known-role ${game.me.role}`}>
+                      {game.me.role === 'hitler'
+                        ? 'Hitler'
+                        : game.me.role === 'liberal'
+                          ? 'Liberal'
+                          : 'Fascist'}
+                    </strong>
+                  )}
+                </div>
+              </div>
+              {game.phase === 'lobby' ? (
+                <PortraitPicker
+                  value={me?.portrait ?? 1}
+                  onChange={(value) =>
+                    void act({ type: 'portrait', portrait: value })
+                  }
+                  disabled={busy || !online}
+                />
+              ) : (
+                <Button
+                  className="primary-button"
+                  onClick={() => {
+                    setSeatOpen(false);
+                    setRoleOpen(true);
+                  }}
+                >
+                  <Eye />
+                  Open secret dossier
+                </Button>
+              )}
+              <div className="settings-links">
+                <Button variant="outline" onClick={invite}>
+                  <Copy />
+                  Invite friends
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSeatOpen(false);
+                    leave();
+                  }}
+                >
+                  <ArrowLeft />
+                  Leave table
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
       <footer className="footer">
         <span>
           Based on{' '}
@@ -1591,11 +1809,11 @@ export default function GameTable() {
           {roleOpen && game?.me.role && (
             <div className="dossier-content">
               <img
-                className={`role-image ${game.me.role}`}
+                className="role-image"
                 src={asset(`role-${game.me.role}`)}
                 alt={`Your secret role is ${game.me.role}`}
                 width="500"
-                height={game.me.role === 'fascist' ? 713 : 712}
+                height="713"
               />
               <div>
                 <h3>
@@ -1674,141 +1892,6 @@ export default function GameTable() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-function PolicyBoard({
-  kind,
-  count,
-  players,
-}: {
-  kind: Policy;
-  count: number;
-  players: number;
-}) {
-  const liberal = kind === 'liberal';
-  const total = liberal ? 5 : 6;
-  const powers: (Power | null)[] =
-    players <= 6
-      ? [null, null, 'peek', 'execute', 'execute', null]
-      : players <= 8
-        ? [null, 'investigate', 'special-election', 'execute', 'execute', null]
-        : [
-            'investigate',
-            'investigate',
-            'special-election',
-            'execute',
-            'execute',
-            null,
-          ];
-  return (
-    <div className={`policy-section ${kind}`}>
-      <div className="policy-heading">
-        <span>{liberal ? 'LIBERAL' : 'FASCIST'} POLICIES</span>
-        <span>
-          <b>{count}</b> / {total} ENACTED
-        </span>
-      </div>
-      <div
-        className="original-board"
-        aria-label={`${kind} board: ${count} of ${total} policies enacted`}
-      >
-        <img
-          className="board-art"
-          src={asset(
-            liberal
-              ? 'board-liberal'
-              : `board-fascist-${players <= 6 ? '5-6' : players <= 8 ? '7-8' : '9-10'}`,
-          )}
-          alt=""
-          width="1683"
-          height="650"
-        />
-        <div className="enacted-overlay">
-          {Array.from({ length: total }, (_, i) => (
-            <div
-              key={i}
-              className="policy-slot"
-              style={{
-                left: `${(liberal ? 18.2 : 11) + i * (liberal ? 13.54 : 13.6)}%`,
-              }}
-            >
-              {i < count && (
-                <img
-                  src={asset(`board-policy-${kind}`)}
-                  alt={`${kind} policy ${i + 1}`}
-                  width="174"
-                  height="240"
-                />
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="mobile-policy-track">
-        {Array.from({ length: total }, (_, i) => (
-          <div
-            className={`mobile-policy-slot ${i < count ? 'enacted' : ''}`}
-            key={i}
-            title={
-              !liberal && powers[i]
-                ? powerNames[powers[i]!]
-                : `${kind} policy ${i + 1}`
-            }
-          >
-            {i < count ? (
-              <img
-                src={asset(`board-policy-${kind}`)}
-                alt={`${kind} policy ${i + 1}`}
-                width="174"
-                height="240"
-              />
-            ) : (
-              <>
-                <b>{String(i + 1).padStart(2, '0')}</b>
-                {i === total - 1 ? (
-                  <Flag size={20} />
-                ) : !liberal && powers[i] ? (
-                  <img
-                    className="power-icon"
-                    src={asset(`power-${powers[i]}`)}
-                    alt=""
-                    width="60"
-                    height="60"
-                  />
-                ) : (
-                  <span className="empty-policy-mark">—</span>
-                )}
-              </>
-            )}
-            <span>
-              {i === total - 1
-                ? 'Win'
-                : !liberal && powers[i]
-                  ? powerNames[powers[i]!]
-                      .replace('Investigate loyalty', 'Loyalty')
-                      .replace('Special election', 'Elect')
-                      .replace('Execution', 'Kill')
-                      .replace('Policy peek', 'Peek')
-                  : 'Policy'}
-              {!liberal && i === 4 && ' + veto'}
-            </span>
-          </div>
-        ))}
-      </div>
-      <div className="policy-caption">
-        {liberal ? (
-          'Enact 5 liberal policies to save the republic.'
-        ) : (
-          <>
-            After 3 policies, electing Hitler chancellor ends the game.
-            {players > 6 && (
-              <span> {players <= 8 ? '7–8' : '9–10'} PLAYER TRACK</span>
-            )}
-          </>
-        )}
-      </div>
     </div>
   );
 }
@@ -1907,7 +1990,7 @@ function ActionPanel({
   }
   return (
     <div
-      className={`action-panel ${game.phase === 'finished' ? `victory ${game.winner}` : ''}`}
+      className={`action-panel ${isYourTurn(game) ? 'active-turn' : ''} ${game.phase === 'finished' ? `victory ${game.winner}` : ''}`}
       aria-live="polite"
     >
       <p className="eyebrow">
@@ -1917,6 +2000,7 @@ function ActionPanel({
             ? `VOTE FOR THIS GOVERNMENT · ${game.voted.length}/${game.players.filter((p) => p.alive).length} SEALED`
             : 'ON THE FLOOR'}
       </p>
+      {game.phase === 'finished' && <Flag className="victory-mark" size={28} />}
       <h2>{title}</h2>
       <p>{description}</p>
       {me.alive &&
@@ -1971,7 +2055,9 @@ function ActionPanel({
         <div className="policy-choices">
           {game.me.hand.map((p, i) => (
             <button
-              key={i}
+              key={`${game.round}-${game.phase}-${i}`}
+              style={{ animationDelay: `${i * 90}ms` }}
+              aria-label={`${game.phase === 'president-discard' ? 'Discard' : 'Enact'} ${p} policy ${i + 1}`}
               className={`policy-choice ${p}`}
               disabled={busy}
               onClick={() =>
@@ -1989,12 +2075,7 @@ function ActionPanel({
                 })
               }
             >
-              <img
-                src={asset(`policy-${p}`)}
-                alt={`${p} policy ${i + 1}`}
-                width="576"
-                height="772"
-              />
+              <PolicyCard kind={p} index={i} />
               <span>
                 {game.phase === 'president-discard' ? 'Discard' : 'Enact'}
               </span>

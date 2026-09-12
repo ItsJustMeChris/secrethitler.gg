@@ -12,7 +12,7 @@
     "lint": "oxlint",
     "format": "oxfmt",
     "db:generate": "drizzle-kit generate",
-    "test": "node --experimental-strip-types --test tests/game.test.ts tests/bots.test.ts tests/fairness.test.ts tests/players.test.ts",
+    "test": "node --experimental-strip-types --test tests/game.test.ts tests/bots.test.ts tests/fairness.test.ts tests/players.test.ts tests/presentation.test.ts",
     "typecheck": "tsc --noEmit",
     "db:local": "wrangler d1 migrations apply DB --local --config wrangler.local.jsonc",
     "test:api": "node tests/api.test.mjs",

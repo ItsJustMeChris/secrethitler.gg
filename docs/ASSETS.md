@@ -15,8 +15,8 @@ Boards, policy tiles, role cards, and ballots come from the Git repository behin
 - Copied PNGs byte-for-byte; no gamma adjustment, recoloring, crop, or recompression.
 - Upstream adaptations include rounded corners, depth, and shadows. These are adapted assets, not untouched exports from the original board game.
 - `role-liberal-1.png` → `role-liberal.png`; `role-fascist-1.png` → `role-fascist.png`; `vote-yes.png` → `ballot-ja.png`; `vote-no.png` → `ballot-nein.png`. Other selected names are unchanged.
-- Desktop boards use the matching small `board-policy-*` tiles at 10% of board width and 30% from the top. Liberal placement starts at 18.2%, spaced 13.54%; fascist placement starts at 11%, spaced 13.6%, matching the upstream board positions.
-- Mobile tracks use those same tiles with contained, proportional sizing. Hands use the larger `policy-*` cards. All artwork retains its intrinsic aspect ratio and transparent borders.
+- Boards at every screen size use the matching small `board-policy-*` tiles at 10% of board width and 30% from the top. Liberal placement starts at 18.2%, spaced 13.54%; fascist placement starts at 11%, spaced 13.6%, matching the upstream board positions.
+- A shared SVG viewBox positions the existing board and tile PNGs together, scaling both proportionally to the available space. The SVG is a layout container for existing artwork. Hands use the larger `policy-*` cards. All artwork retains its intrinsic aspect ratio and transparent borders.
 - The asset URL revision refreshes cached print-and-play exports on existing devices.
 
 The included `docs/asset-manifest.json` records each copied file's exact source path, commit, dimensions, and SHA-256 checksum.

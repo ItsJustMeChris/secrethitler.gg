@@ -859,7 +859,7 @@ export function viewFor(game: Game, viewerId: string) {
       role: me.role ?? null,
       teammates,
       hand: seesHand ? game.hand : [],
-      ballot: game.votes[viewerId] ?? null,
+      ballot: (game.votes[viewerId] ?? null) as boolean | null,
       notes: game.notes[viewerId] ?? [],
     },
   };
