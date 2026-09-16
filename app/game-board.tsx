@@ -10,11 +10,13 @@ export function PolicyBoard({
   count,
   players,
   highlightedCount,
+  tracker = 0,
 }: {
   kind: Policy;
   count: number;
   players: number;
   highlightedCount?: number;
+  tracker?: number;
 }) {
   const titleId = useId();
   const total = kind === 'liberal' ? 5 : 6;
@@ -44,7 +46,7 @@ export function PolicyBoard({
           <title id={titleId}>
             {kind} board: {count} of {total} policies enacted.{' '}
             {liberal
-              ? 'Five policies win.'
+              ? `Five policies win. Election tracker: ${tracker} failed governments.`
               : powers
                   .map(
                     (power, i) =>
@@ -53,6 +55,16 @@ export function PolicyBoard({
                   .join('. ')}
           </title>
           <image href={asset(board)} width="1683" height="650" />
+          {liberal && (
+            <g
+              className="election-puck"
+              transform={`translate(${602 + 154.5 * tracker} 519)`}
+              aria-hidden="true"
+            >
+              <circle r="22" />
+              <circle className="election-puck-rim" r="16" />
+            </g>
+          )}
           {Array.from({ length: count }, (_, i) => {
             const x =
               (1683 * ((liberal ? 18.2 : 11) + i * (liberal ? 13.54 : 13.6))) /

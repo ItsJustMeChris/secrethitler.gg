@@ -38,7 +38,7 @@ export function coachTip(game: GameView) {
           ? 'Ja approves both officials'
           : 'Your vote is locked',
       text:
-        'A strict majority of living players must vote Ja; a tie fails. Ballots reveal together after everyone votes.' +
+        'A strict majority of living players must vote Ja; a tie fails. Submitted votes appear above each player; the election finishes after everyone votes.' +
         (game.tracker === 2
           ? ' One more failed government causes chaos: the top policy is enacted, its power is skipped, and term limits reset.'
           : ' Failed elections advance the tracker. Electing a government alone does not reset it.'),

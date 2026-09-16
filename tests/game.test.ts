@@ -124,18 +124,44 @@ void test('non-president, self, and term-limited nominations rejected', () => {
     applyAction(game, 'p0', { type: 'nominate', target: 'p1' }),
   );
 });
-void test('votes are private until simultaneous reveal; cannot overwrite a ballot', () => {
+void test('submitted Ja and Nein votes are public to every seat; elections wait for everyone and ballots cannot change', () => {
+  for (let count = 5; count <= 10; count++) {
+    const game = started(count);
+    applyAction(game, 'p0', { type: 'nominate', target: 'p1' });
+    applyAction(game, 'p0', { type: 'vote', yes: false });
+    applyAction(game, 'p1', { type: 'vote', yes: true });
+    for (const viewer of game.players) {
+      const view = viewFor(game, viewer.id);
+      assert.equal(view.phase, 'voting');
+      assert.equal(view.lastVote, null);
+      assert.deepEqual(view.ballots, { p0: false, p1: true });
+      assert.deepEqual(view.voted, ['p0', 'p1']);
+      assert.equal(view.me.ballot, game.votes[viewer.id] ?? null);
+      view.ballots.p0 = true;
+      assert.equal(game.votes.p0, false);
+    }
+    assert.throws(() => applyAction(game, 'p0', { type: 'vote', yes: true }));
+    for (const p of game.players.slice(2))
+      applyAction(game, p.id, { type: 'vote', yes: true });
+    assert.equal(game.lastVote?.votes.p0, false);
+    assert.equal(game.lastVote?.passed, true);
+    assert.deepEqual(viewFor(game, 'p0').ballots, {});
+  }
+});
+void test('live ballots do not carry over into the next election', () => {
   const game = started();
-  applyAction(game, 'p0', { type: 'nominate', target: 'p1' });
-  applyAction(game, 'p0', { type: 'vote', yes: false });
-  assert.equal(viewFor(game, 'p1').lastVote, null);
-  assert.equal(viewFor(game, 'p1').me.ballot, null);
-  assert.deepEqual(viewFor(game, 'p1').voted, ['p0']);
-  assert.throws(() => applyAction(game, 'p0', { type: 'vote', yes: true }));
-  for (const p of game.players.slice(1))
-    applyAction(game, p.id, { type: 'vote', yes: true });
-  assert.equal(game.lastVote?.votes.p0, false);
-  assert.equal(game.lastVote?.passed, true);
+  elect(game, 'p1', false);
+  assert.equal(game.phase, 'nomination');
+  assert.deepEqual(viewFor(game, 'p0').ballots, {});
+  applyAction(game, game.president!, {
+    type: 'nominate',
+    target: eligibleChancellors(game)[0],
+  });
+  const view = viewFor(game, 'p0');
+  assert.equal(view.phase, 'voting');
+  assert.deepEqual(view.ballots, {});
+  assert.deepEqual(view.voted, []);
+  assert.equal(view.me.ballot, null);
 });
 void test('a tied election fails and advances presidency; term limits persist', () => {
   const game = started(6);

@@ -54,7 +54,7 @@ export function legislativeGuidance(game: GameView) {
   return null;
 }
 
-// Only the server's completed, public election record supplies ballot choices.
+// Election recaps use the completed record, never the partial live tally.
 export function electionResult(game: GameView) {
   const vote = game.lastVote;
   if (!vote || game.phase === 'lobby') return null;

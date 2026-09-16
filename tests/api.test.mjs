@@ -139,11 +139,13 @@ game = await actor(game.president).action(game, {
   type: 'nominate',
   target: game.eligible.find((id) => byRole.get(id) !== 'hitler'),
 });
-// One sealed vote is not observable by other players.
+// A submitted vote is visible to everyone, but does not finish the election.
 game = await host.action(game, { type: 'vote', yes: true });
-const noLeak = await clients[1].request(null, code);
-assert.equal(noLeak.me.ballot, null);
-assert.equal(noLeak.lastVote, null);
+const pendingVote = await clients[1].request(null, code);
+assert.equal(pendingVote.me.ballot, null);
+assert.equal(pendingVote.lastVote, null);
+assert.equal(pendingVote.phase, 'voting');
+assert.deepEqual(pendingVote.ballots, { [game.me.id]: true });
 await host.action(game, { type: 'vote', yes: false }, randomUUID(), {
   status: 400,
 });
@@ -210,7 +212,7 @@ assert.deepEqual(
   publicPolicy,
 );
 console.log(
-  'PASS: 10 independent seats, private roles/hands, sealed ballots, concurrent voting, replay protection, illegal moves, CSRF and session forgery.',
+  'PASS: 10 independent seats, private roles/hands, live public ballots, concurrent voting, replay protection, illegal moves, CSRF and session forgery.',
 );
 
 // Complete a real networked game, using only information legal for each seat.

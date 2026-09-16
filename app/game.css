@@ -680,6 +680,17 @@ input::placeholder {
   min-height: 0;
   overflow: hidden;
 }
+.election-puck {
+  fill: #292929;
+  stroke: #f8edd5;
+  stroke-width: 4px;
+  filter: drop-shadow(0 3px 2px #0007);
+}
+.election-puck-rim {
+  fill: none;
+  stroke: #555;
+  stroke-width: 2px;
+}
 .deck-tracker {
   display: flex;
   flex-wrap: wrap;
@@ -1234,10 +1245,6 @@ input::placeholder {
 .player-policy-bubble small {
   font-weight: 400;
 }
-.ballot-sealed {
-  display: inline-flex;
-  color: var(--muted-ink);
-}
 .players-heading > span {
   max-width: 48%;
   text-align: right;
@@ -1463,9 +1470,15 @@ input::placeholder {
 .office-caption svg {
   flex-shrink: 0;
 }
-.president-player .player-icon,
-.chancellor-player .player-icon {
+.player-office-icon {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  bottom: 0;
+  right: -3px;
   color: var(--office-ink);
+  background: var(--office-wash);
+  border-radius: 2px;
 }
 .bot-badge {
   display: inline-flex;
@@ -2772,9 +2785,6 @@ input::placeholder {
   }
   .tracker-steps {
     gap: 3px;
-  }
-  .muted {
-    display: none;
   }
   .turn-action {
     max-height: none;

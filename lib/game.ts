@@ -655,7 +655,7 @@ export function applyAction(game: Game, actorId: string, action: Action) {
         game.phase === 'voting' && typeof action.yes === 'boolean',
         'Voting is not available.',
       );
-      requireRule(!(actorId in game.votes), 'Your ballot is already sealed.');
+      requireRule(!(actorId in game.votes), 'Your vote is already submitted.');
       game.votes[actorId] = action.yes;
       if (living(game).every((p) => p.id in game.votes)) {
         const yes = Object.values(game.votes).filter(Boolean).length;
@@ -875,6 +875,7 @@ export function viewFor(game: Game, viewerId: string) {
     drawCount: game.deck.length,
     discardCount: game.discard.length,
     voted: Object.keys(game.votes),
+    ballots: game.phase === 'voting' ? { ...game.votes } : {},
     lastVote: game.lastVote,
     power: game.power,
     investigated: game.investigated,
