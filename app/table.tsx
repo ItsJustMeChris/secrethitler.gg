@@ -12,8 +12,6 @@ import {
   playerSelection,
 } from '@/lib/game-presentation';
 import { closedDossier, dossierReducer } from '@/lib/dossier';
-import { connectTable, type TableView } from '@/lib/table-connection';
-import { GameDialog as Dialog } from './game-dialog';
 import {
   Settings2,
   Volume2,
@@ -50,6 +48,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
+  Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -79,7 +78,9 @@ import { InvestigationDialog } from './investigation-dialog';
 import { PORTRAITS, isPortrait, portraitUrl } from '@/lib/portraits';
 import { playerKnowledge } from '@/lib/player-knowledge';
 
-type View = TableView;
+type View = Omit<GameView, 'players'> & {
+  players: (GameView['players'][number] & { connected: boolean })[];
+};
 const powerNames: Record<Power, string> = {
   investigate: 'Investigate loyalty',
   'special-election': 'Special election',
@@ -96,6 +97,34 @@ const phaseNames: Record<string, string> = {
   executive: 'Executive action',
   finished: 'Game over',
 };
+
+async function api(input?: Record<string, unknown>, code?: string) {
+  const response = await fetch(
+    `/api/table${code ? `?code=${encodeURIComponent(code)}` : ''}`,
+    {
+      method: input ? 'POST' : 'GET',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      ...(input
+        ? {
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(input),
+          }
+        : {}),
+      signal: AbortSignal.timeout(15_000),
+    },
+  );
+  const result = (await response.json()) as View & {
+    left?: boolean;
+    error?: string;
+  };
+  if (!response.ok)
+    throw Object.assign(
+      new Error(result.error ?? 'The table could not be reached.'),
+      { status: response.status },
+    );
+  return result as View & { left?: boolean };
+}
 
 export default function GameTable() {
   const [game, setGame] = useState<View | null>(null);
@@ -146,7 +175,6 @@ export default function GameTable() {
   } | null>(null);
   const gameRef = useRef<View | null>(null);
   const pending = useRef(false);
-  const connection = useRef<ReturnType<typeof connectTable> | null>(null);
   const changeChatOpen = (open: boolean) => {
     chatOpenRef.current = open;
     setChatOpen(open);
@@ -229,6 +257,7 @@ export default function GameTable() {
         setLastReadMessage(next.messages.at(-1)?.id ?? '');
       gameRef.current = next;
       setGame(next);
+      setOnline(true);
     },
     [receiveFeedback],
   );
@@ -272,33 +301,29 @@ export default function GameTable() {
       setCode(invite);
       setEntry('join');
     }
-    const live = connectTable({
-      code: saved ?? undefined,
-      receive: (next) => {
-        accept(next);
-        localStorage.setItem('sh-room', next.code);
-      },
-      status: (connected) => {
-        setOnline(connected);
-        if (connected) setRestoring(false);
-      },
-      expired: (message, status) => {
-        if (gameRef.current || status === 404) setError(message);
-        gameRef.current = null;
-        setGame(null);
-        setRestoring(false);
-        updateDossier({ type: 'reset' });
-        setPrivateResult(null);
-        setInvestigationOpen(false);
-        setChoice(null);
-        localStorage.removeItem('sh-room');
-        if (status === 404) history.replaceState(null, '', '/');
-      },
-    });
-    connection.current = live;
+    let active = true;
+    if (saved) {
+      api(undefined, saved)
+        .then((next) => {
+          if (active) {
+            accept(next);
+            localStorage.setItem('sh-room', saved);
+          }
+        })
+        .catch((e: Error & { status?: number }) => {
+          if (e.status === 404 || e.status === 401 || e.status === 400)
+            localStorage.removeItem('sh-room');
+          else if (active)
+            setError(
+              'Could not reconnect yet. Enter your room code to try again.',
+            );
+        })
+        .finally(() => {
+          if (active) setRestoring(false);
+        });
+    } else setRestoring(false);
     return () => {
-      live.stop();
-      if (connection.current === live) connection.current = null;
+      active = false;
     };
   }, [accept]);
 
@@ -335,6 +360,53 @@ export default function GameTable() {
       );
     }
   };
+  useEffect(() => {
+    if (!game?.code) return;
+    const room = game.code;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        if (!document.hidden) {
+          const current = gameRef.current;
+          const wakeBots =
+            current?.practice &&
+            !current.practice.paused &&
+            !['lobby', 'finished'].includes(current.phase) &&
+            !pending.current;
+          const next = wakeBots
+            ? await api({ operation: 'tick', code: room })
+            : await api(undefined, room);
+          if (active && gameRef.current?.code === room) accept(next);
+        }
+      } catch (e) {
+        if (active) {
+          setOnline(false);
+          const status = (e as { status?: number }).status;
+          if (status === 400 || status === 401 || status === 404) {
+            setError((e as Error).message);
+            gameRef.current = null;
+            setGame(null);
+            updateDossier({ type: 'reset' });
+            setPrivateResult(null);
+            setInvestigationOpen(false);
+            localStorage.removeItem('sh-room');
+            return;
+          }
+        }
+      }
+      if (active)
+        timer = setTimeout(
+          poll,
+          gameRef.current?.practice?.pace === 'fast' ? 750 : 1500,
+        );
+    };
+    timer = setTimeout(poll, 1500);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [game?.code, accept]);
 
   useEffect(() => {
     const hide = () => updateDossier({ type: 'hide' });
@@ -399,26 +471,19 @@ export default function GameTable() {
     };
   }, [voiceAvailable]);
 
-  async function socketRequest(input: Record<string, unknown>) {
-    const live = connection.current;
-    if (!live)
-      throw new Error('Connecting to the table. Please try again shortly.');
-    return live.request(input);
-  }
   async function enter(operation: 'create' | 'join' | 'solo') {
     if (pending.current) return;
     pending.current = true;
     setBusy(true);
     setError('');
     try {
-      const next = await socketRequest({
+      const next = await api({
         operation,
         name,
         portrait,
         ...(operation === 'solo' ? { seats: Number(seats) } : {}),
         code: code.replace(/[\s-]/g, '').toUpperCase(),
       });
-      if ('left' in next) throw new Error('Could not enter the table.');
       accept(next);
       localStorage.setItem('sh-name', name.trim());
       const actualPortrait = next.players.find(
@@ -459,15 +524,15 @@ export default function GameTable() {
     setBusy(true);
     setError('');
     try {
-      const next = await socketRequest({
+      const next = await api({
         operation: 'action',
         code: current.code,
+        requestId: crypto.randomUUID(),
         phase: expected?.phase ?? current.phase,
         round: expected?.round ?? current.round,
         action,
       });
-      if (gameRef.current?.code !== current.code) return false;
-      if ('left' in next) clear();
+      if (next.left) clear();
       else {
         accept(next);
         if (['nominate', 'power', 'rematch', 'start'].includes(action.type))
@@ -481,7 +546,11 @@ export default function GameTable() {
       return true;
     } catch (e) {
       setError((e as Error).message);
-      connection.current?.sync();
+      try {
+        accept(await api(undefined, current.code));
+      } catch {
+        setOnline(false);
+      }
       return false;
     } finally {
       pending.current = false;
@@ -506,14 +575,14 @@ export default function GameTable() {
     setBusy(true);
     setError('');
     try {
-      const next = await socketRequest({
-        operation: 'tick',
-        code: current.code,
-        manual: true,
-        revision: current.revision,
-      });
-      if (!('left' in next) && gameRef.current?.code === current.code)
-        accept(next);
+      accept(
+        await api({
+          operation: 'tick',
+          code: current.code,
+          manual: true,
+          revision: current.revision,
+        }),
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -996,16 +1065,16 @@ export default function GameTable() {
                     <PortraitPicker
                       value={portrait}
                       onChange={setPortrait}
-                      disabled={busy || restoring || !online}
+                      disabled={busy || restoring}
                     />
                     <Button
                       className="primary-button"
                       type="submit"
-                      disabled={busy || restoring || !online}
+                      disabled={busy || restoring}
                     >
                       {busy
                         ? 'Taking your seat…'
-                        : restoring || !online
+                        : restoring
                           ? 'Checking your seat…'
                           : entry === 'create'
                             ? 'Create private table'
@@ -1874,10 +1943,9 @@ export default function GameTable() {
             </p>
             <p>
               Your seat uses a private browser cookie. Return using the same
-              browser to reconnect. No email or account is required. Rooms close
-              after everyone disconnects, with a one-minute grace period for
-              reconnecting. Sessions expire after 7 days without activity and
-              are cleaned up as new tables are created.
+              browser to reconnect. No email or account is required. Room state,
+              chat, and sessions expire after 7 days without activity and are
+              cleaned up as new tables are created.
             </p>
             <p>
               Invite people you trust. Software cannot prevent friends from
@@ -1962,10 +2030,11 @@ export default function GameTable() {
       </Dialog>
 
       <Dialog
-        open={roleOpen || dossier.pending}
+        open={roleOpen}
         onOpenChange={(open) =>
           updateDossier({ type: open ? 'open' : 'dismiss' })
         }
+        disablePointerDismissal={dossier.pending}
       >
         <DialogContent className="dossier-dialog paper">
           <DialogHeader>
@@ -2043,11 +2112,6 @@ export default function GameTable() {
                 ))}
               </div>
             </div>
-          )}
-          {!roleOpen && (
-            <p>
-              Your private information is hidden while this window is inactive.
-            </p>
           )}
           <Button
             className="primary-button"

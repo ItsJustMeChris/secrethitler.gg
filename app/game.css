@@ -1939,9 +1939,6 @@ input::placeholder {
 }
 [data-slot='dialog-close'] {
   color: var(--muted-ink);
-  min-width: 44px;
-  min-height: 44px;
-  z-index: 2;
 }
 .guide-content {
   color: var(--muted-ink);

@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { freshMemory, observe, planBot } from '../lib/bots.ts';
 import { verifyFairness } from '../lib/fairness.ts';
-import { liveClient } from './live-client.mjs';
 
 const base = process.env.TEST_URL || 'http://localhost:3000';
 const local = ['localhost', '127.0.0.1'].includes(new URL(base).hostname);
@@ -141,9 +140,6 @@ game = await host.action(game, { type: 'start' });
 await host.action(game, { type: 'add-bot' }, 400);
 await friend.action(game, { type: 'portrait', portrait: 2 }, 400);
 game = await host.action(game, { type: 'practice-settings', paused: true });
-const live = liveClient(base, host.cookie, code);
-await live.wait((message) => message.type === 'state');
-process.on('uncaughtExceptionMonitor', () => live.close());
 const friendBeforeLeave = await friend.request(null, code);
 const leftLive = await friend.request({
   operation: 'action',
@@ -233,7 +229,6 @@ reconnect.cookie = host.cookie;
 const restored = await reconnect.request(null, code);
 assert.equal(restored.me.id, host.id);
 assert.equal(restored.winner, game.winner);
-live.close();
 assert.equal((await host.action(game, { type: 'leave' })).left, true);
 game = await friend.request(null, code);
 assert.equal(game.hostId, friend.id);

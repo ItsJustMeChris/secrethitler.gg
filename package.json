@@ -12,13 +12,11 @@
     "lint": "oxlint",
     "format": "oxfmt",
     "db:generate": "drizzle-kit generate",
-    "test": "node --experimental-strip-types --test tests/game.test.ts tests/rules-audit.test.ts tests/bots.test.ts tests/fairness.test.ts tests/players.test.ts tests/presentation.test.ts tests/connection.test.ts tests/room-presence.test.ts",
+    "test": "node --experimental-strip-types --test tests/game.test.ts tests/rules-audit.test.ts tests/bots.test.ts tests/fairness.test.ts tests/players.test.ts tests/presentation.test.ts",
     "test:rules": "node --experimental-strip-types --test tests/rules-audit.test.ts",
     "test:rules:mutations": "node tests/rules-mutations.mjs",
     "typecheck": "tsc --noEmit",
     "db:local": "wrangler d1 migrations apply DB --local --config wrangler.local.jsonc",
-    "test:rooms-api": "node tests/rooms-api.test.mjs",
-    "test:websocket": "node tests/websocket.test.mjs",
     "test:api": "node tests/api.test.mjs",
     "test:bots-api": "node tests/bots-api.test.mjs"
   },
@@ -61,8 +59,7 @@
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
     "vite": "8.2.2",
-    "wrangler": "4.130.0",
-    "ws": "8.21.3"
+    "wrangler": "4.130.0"
   },
   "type": "module",
   "overrides": {
