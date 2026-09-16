@@ -2023,6 +2023,57 @@ input::placeholder {
   color: var(--muted-ink);
   font-size: 16px;
 }
+.investigation-content > div {
+  min-width: 0;
+}
+.investigation-content h3 {
+  overflow-wrap: anywhere;
+}
+.investigation-portrait {
+  aspect-ratio: 1;
+  align-self: center;
+}
+.investigation-membership {
+  display: grid;
+  gap: 3px;
+  padding: 12px 14px;
+  margin: 0 0 14px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  color: var(--liberal-ink);
+  background: var(--liberal-wash);
+}
+.investigation-membership.fascist {
+  color: var(--fascist-ink);
+  background: var(--fascist-wash);
+}
+.investigation-membership span {
+  font-size: 14px;
+  line-height: 1.3;
+}
+.investigation-membership strong {
+  font-family: var(--font-heading);
+  font-size: clamp(24px, 5vw, 32px);
+  line-height: 1.2;
+}
+.investigation-privacy {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  color: var(--muted-ink);
+  font-size: 14px;
+}
+.investigation-privacy svg {
+  flex: none;
+  margin-top: 3px;
+}
+.investigation-review {
+  margin-top: 8px;
+  min-height: 44px;
+  height: auto;
+  white-space: normal;
+  text-align: left;
+}
 .private-notes {
   margin-top: 14px;
   border-top: 1px solid var(--line);

@@ -74,6 +74,7 @@ import type { Action, GameView, Power } from '@/lib/game';
 import { FairPlayProof, rememberFairness } from './fair-play';
 import { PortraitPicker } from './portrait-picker';
 import { ElectionRecap, PlayerEvent, PolicyRecap } from './table-events';
+import { InvestigationDialog } from './investigation-dialog';
 import { PORTRAITS, isPortrait, portraitUrl } from '@/lib/portraits';
 import { playerKnowledge } from '@/lib/player-knowledge';
 
@@ -164,6 +165,7 @@ export default function GameTable() {
   const [privateResult, setPrivateResult] = useState<
     GameView['me']['notes'][number] | null
   >(null);
+  const [investigationOpen, setInvestigationOpen] = useState(false);
   const [choice, setChoice] = useState<{
     action: Action;
     title: string;
@@ -202,12 +204,33 @@ export default function GameTable() {
         setSeatOpen(false);
         setChoice(null);
         setPrivateResult(null);
+        setInvestigationOpen(false);
       }
       updateDossier({
         type: 'receive',
         game: next,
         visible: !document.hidden && document.hasFocus(),
       });
+      if (
+        !tableChanged &&
+        current &&
+        next.me.notes.length > current.me.notes.length
+      ) {
+        const note = next.me.notes.at(-1) ?? null;
+        setPrivateResult(note);
+        const investigating = !!(note?.party && note.targetId);
+        setInvestigationOpen(investigating);
+        if (investigating) {
+          updateDossier({ type: 'dismiss' });
+          setSeatOpen(false);
+          setSettingsOpen(false);
+          setRules(false);
+          setPrivacy(false);
+          setChoice(null);
+          chatOpenRef.current = false;
+          setChatOpen(false);
+        }
+      }
       if (
         next.me.role &&
         !['lobby', 'finished'].includes(next.phase) &&
@@ -255,6 +278,7 @@ export default function GameTable() {
     setChoice(null);
     setSeatOpen(false);
     setPrivateResult(null);
+    setInvestigationOpen(false);
     changeChatOpen(false);
     setChatDraft('');
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
@@ -364,6 +388,8 @@ export default function GameTable() {
             gameRef.current = null;
             setGame(null);
             updateDossier({ type: 'reset' });
+            setPrivateResult(null);
+            setInvestigationOpen(false);
             localStorage.removeItem('sh-room');
             return;
           }
@@ -509,8 +535,6 @@ export default function GameTable() {
       if (next.left) clear();
       else {
         accept(next);
-        if (next.me.notes.length > current.me.notes.length)
-          setPrivateResult(next.me.notes.at(-1) ?? null);
         if (['nominate', 'power', 'rematch', 'start'].includes(action.type))
           setSeatOpen(false);
         if (action.type === 'portrait') {
@@ -570,6 +594,9 @@ export default function GameTable() {
   const inGame = game && game.phase !== 'lobby';
   const lastElection = game ? electionResult(game) : null;
   const lastPolicy = game ? policyResult(game) : null;
+  const investigatedPlayer = game?.players.find(
+    (player) => player.id === privateResult?.targetId,
+  );
   const unreadChat =
     (!(chatOpen || desktopChat) || chatTab !== 'chat') && game
       ? game.messages
@@ -806,7 +833,20 @@ export default function GameTable() {
                       <p className="eyebrow">
                         <Eye size={14} /> PRIVATE TO YOU
                       </p>
-                      <p>{privateResult.text}</p>
+                      {privateResult.party && investigatedPlayer ? (
+                        <>
+                          <p>Investigation complete.</p>
+                          <Button
+                            variant="outline"
+                            className="investigation-review"
+                            onClick={() => setInvestigationOpen(true)}
+                          >
+                            <Eye size={16} /> Review private result
+                          </Button>
+                        </>
+                      ) : (
+                        <p>{privateResult.text}</p>
+                      )}
                       {privateResult.policies && (
                         <div className="peek-policies">
                           {privateResult.policies.map((policy, index) => (
@@ -2043,6 +2083,19 @@ export default function GameTable() {
                 {game.me.notes.map((note, i) => (
                   <div key={i} className="private-notes">
                     <p>{note.text}</p>
+                    {note.party && note.targetId && (
+                      <Button
+                        variant="outline"
+                        className="investigation-review"
+                        onClick={() => {
+                          updateDossier({ type: 'dismiss' });
+                          setPrivateResult(note);
+                          setInvestigationOpen(true);
+                        }}
+                      >
+                        <Eye size={16} /> Review investigation
+                      </Button>
+                    )}
                     {note.policies && (
                       <div className="peek-policies">
                         {note.policies.map((p, j) => (
@@ -2066,6 +2119,15 @@ export default function GameTable() {
           </Button>
         </DialogContent>
       </Dialog>
+
+      {game && privateResult?.party && investigatedPlayer && (
+        <InvestigationDialog
+          open={investigationOpen}
+          onOpenChange={setInvestigationOpen}
+          player={investigatedPlayer}
+          party={privateResult.party}
+        />
+      )}
 
       <Dialog
         open={!!choice}
