@@ -4,12 +4,12 @@ import { useEffect, useState } from 'react';
 import { EyeOff, LockKeyhole } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { GameDialog as Dialog } from './game-dialog';
 import type { Policy } from '@/lib/game';
 import { portraitUrl } from '@/lib/portraits';
 
@@ -45,7 +45,7 @@ export function InvestigationDialog({
 
   const revealed = open && visible;
   return (
-    <Dialog open={revealed} onOpenChange={onOpenChange} disablePointerDismissal>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="dossier-dialog paper investigation-dialog">
         <DialogHeader>
           <p className="eyebrow">FOR YOUR EYES ONLY</p>
@@ -76,6 +76,9 @@ export function InvestigationDialog({
               </p>
             </div>
           </div>
+        )}
+        {!revealed && (
+          <p>Your private result is hidden while this window is inactive.</p>
         )}
         <p className="investigation-privacy">
           <LockKeyhole size={14} aria-hidden="true" />

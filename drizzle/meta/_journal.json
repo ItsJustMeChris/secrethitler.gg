@@ -8,6 +8,13 @@
       "when": 1789007173842,
       "tag": "0000_real_mad_thinker",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789541139427,
+      "tag": "0001_websocket_rooms",
+      "breakpoints": true
     }
   ]
 }

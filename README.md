@@ -10,7 +10,7 @@ Includes the three original power tracks, exact roles and 17-policy deck, live p
 
 The game uses the official website's apricot, paper, and charcoal visual cues with Courier Prime text, geometric Jost headings, familiar Secret Hitler boards, ballots, and role cards. Original transparent illustrated portraits stay in the informational assembly beside the boards on desktop and above them on phones. The two policy boards scale together without cropping. Your seat, invites, fair play, and leaving remain available in the room toolbar. Short screens and enlarged text can scroll without clipping controls.
 
-All turn decisions happen in the “On the floor” area below the boards. Player portraits are selectable there for nominations, investigations, executions, and special elections, followed by an inline confirmation. Policy selection, confirmation, and private policy-peek results stay on the floor. A loyalty investigation automatically opens a private dossier-style popup with the target's avatar and party membership, never their secret role. The result hides when the window loses focus and returns until dismissed; it can be reopened from the floor or the president's secret dossier. Newly received private notes also surface after a recovered response or polling update. Choices use only the server's personal game view; unavailable candidates are explained, and selections reset with their turn context. The assembly has no action buttons. Hosts remove waiting players through “Manage players” in the lobby controls.
+All turn decisions happen in the “On the floor” area below the boards. Player portraits are selectable there for nominations, investigations, executions, and special elections, followed by an inline confirmation. Policy selection, confirmation, and private policy-peek results stay on the floor. A loyalty investigation automatically opens a private dossier-style popup with the target's avatar and party membership, never their secret role. The result hides when the window loses focus and returns until dismissed; it can be reopened from the floor or the president's secret dossier. Newly received private notes also surface after a recovered response or WebSocket update. Choices use only the server's personal game view; unavailable candidates are explained, and selections reset with their turn context. The assembly has no action buttons. Hosts remove waiting players through “Manage players” in the lobby controls.
 
 Legislation names the president passing the policies and the chancellor receiving them. Each submitted Ja/Nein vote appears above its player's portrait for everyone to see and stays until the election finishes. Completed elections keep those speech bubbles for four seconds, clearing sooner when a policy is enacted or the next election begins. A round-labeled government/tally summary and expandable voter list remain on the floor. Enacted policies identify the chancellor and president in a public event record that survives reconnection, briefly highlight the new board tile, and show an enactment bubble. Chaos policies are explicitly attributed to the election tracker. Event animations never gate actions and respect reduced-motion preferences; no hidden hand is used for these displays.
 
@@ -54,6 +54,8 @@ Open http://localhost:3000 . The Vite Cloudflare worker and Wrangler migration c
 npm test                 # Rules, secrecy boundaries, 600 rules + 600 AI games
 npm run test:rules       # Independent rulebook oracles and exhaustive bounded cases
 npm run test:rules:mutations # Check detection of 30 deliberately altered rule variants
+npm run test:websocket   # Socket-only match, room entry, controls, recovery and origin protection
+npm run test:rooms-api   # Room closure after last disconnect (takes about 65 seconds)
 npm run test:api         # Real local HTTP/D1 multiplayer tests; dev server must be running
 npm run test:bots-api    # Mixed human/AI game, solo, capacity, pacing and concurrent steps
 npm run typecheck
@@ -68,24 +70,26 @@ The [rules audit](docs/RULES-AUDIT.md) maps the official rulebook and printed bo
 
 ## Architecture and fair play
 
-- The server is the only authority. `lib/game.ts` is the rules state machine; `lib/server.ts` authenticates HTTP requests and persists state in D1.
+- The server is the only authority. `lib/game.ts` is the rules state machine; `lib/server.ts` authenticates socket commands and HTTP requests and persists state in D1.
 - Client payloads contain move intentions, never roles, policy values, results, RNG seeds, or player identities used for authentication.
 - `viewFor` explicitly selects public fields and the requesting player’s allowed secrets. No complete game state is embedded in HTML or client storage.
 - A cryptographically random 256-bit token lives in an HttpOnly, SameSite=Strict cookie (Secure over HTTPS). Only its SHA-256 hash is stored server-side. Public player IDs cannot authenticate requests.
 - Each move commits through a conditional database update by revision, retrying contention. Request IDs suppress duplicate actions. Phase and monotonically advancing round checks reject stale moves.
 - AI wake requests require an authenticated human seat and the same Origin/body validation as moves. The server chooses the bot and action; clients cannot supply either. Pace deadlines and actions commit together by revision, preventing multiple browsers from accelerating AI. Manual steps additionally require the host, paused AI, and the expected revision. No-op ticks do not write or extend room lifetime. Private bot memory is omitted from all projections.
 - Shuffle uses the platform CSPRNG and unbiased rejection sampling. The initial president is uniformly random.
-- Room/session state survives worker restarts and disconnects. Refresh/polling fetches a personalized view roughly every 1.5 seconds (750 ms between requests at fast AI pace), with no background-tab polling. Presence expires after 45 seconds; game actions wait for human players without turn timers.
+- Live updates use authenticated same-origin WebSockets. The browser receives personalized snapshots, checks heartbeats, and reconnects/resyncs after interrupted connections, tab restoration, and network recovery. Room entry, moves, chat, host controls, leave and rematch also use acknowledged socket commands. Interrupted commands release the controls and are never automatically replayed; the HTTP API remains for compatibility. The existing Sites/D1 hosting has no room coordinator binding, so each server stream checks the durable room revision every 750 ms; this is not an instantaneous cross-worker broadcast. See [real-time transport](docs/REALTIME.md).
 - Request bodies are capped at 4 KiB. Origin checks, text validation, rate limits, security headers, no-store responses, and escaped React text protect the request surface. Rate limits are persisted across worker instances.
-- Room state expires after 7 days without a game action; sessions expire after 7 days without use. Expired rows are cleaned during table creation. No IP address is stored in plaintext in rate-limit records.
+- Rooms close 60 seconds after their last socket disconnects. Lost close events are covered by 45-second connection leases, followed by the same grace period. New rooms have 60 seconds to establish their first socket. Closed rooms cannot be revived by a reconnect, HTTP read, or move; expired rows are removed on access/creation. Sessions still expire after 7 days without use. No IP address is stored in plaintext in rate-limit records.
 
 ### Limits
 
-Anti-cheat protects server authority and secret distribution. It cannot stop screenshot sharing, off-platform collusion, a person using multiple browsers, or an operator with database access. Anonymous seats are not verified human identities. Losing the cookie loses that seat. A disconnected player must return to continue their turn; the host cannot override a vote, replace a live-game player, or inspect their role. There is no built-in voice chat or public matchmaking.
+Anti-cheat protects server authority and secret distribution. It cannot stop screenshot sharing, off-platform collusion, a person using multiple browsers, or an operator with database access. Anonymous seats are not verified human identities. Losing the cookie loses that seat. While anyone remains connected, a disconnected player must return to continue their turn; the host cannot override a vote, replace a live-game player, or inspect their role. There is no built-in voice chat or public matchmaking.
 
 ## Deployment
 
 `npm run build` produces a Cloudflare Worker in `dist/server` plus static assets. This checkout is registered with Sites; `.openai/hosting.json` contains the project ID and logical D1 binding. Deploy the exact built source and migrations through Sites. The Site’s outer access policy must admit friends before they can use room invites; a room code does not bypass private Site access.
+
+The `0001_websocket_rooms` migration intentionally closes all pre-WebSocket rooms while preserving session cookies. Apply it together with this version; active games cannot resume across that migration.
 
 Production source contains no test backdoors or debug role endpoints. `wrangler.local.jsonc` is only for local migrations. Local SQLite state, environment files, build output, and temporary audit artifacts are excluded from version control.
 
