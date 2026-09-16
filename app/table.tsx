@@ -1093,19 +1093,6 @@ export default function GameTable() {
                         {me?.ready ? <CheckCheck /> : <Check />}
                         {me?.ready ? 'Ready — click to unready' : 'I’m ready'}
                       </Button>
-                      {game.hostId === game.me.id && (
-                        <Button
-                          variant="outline"
-                          className="add-bot-button"
-                          disabled={busy || game.players.length >= 10}
-                          onClick={() => act({ type: 'add-bot' })}
-                        >
-                          <Bot />{' '}
-                          {game.players.length >= 10
-                            ? 'Table full · 10 players'
-                            : 'Add AI player'}
-                        </Button>
-                      )}
                       {game.hostId === game.me.id &&
                         game.players.length < 10 && (
                           <Button
@@ -1130,43 +1117,55 @@ export default function GameTable() {
                           Deal the roles <ArrowRight />
                         </Button>
                       )}
-                      {game.hostId === game.me.id &&
-                        game.players.length > 1 && (
-                          <details className="lobby-player-management">
-                            <summary>Manage players</summary>
-                            {game.players
-                              .filter((p) => p.id !== game.me.id)
-                              .map((p) => (
-                                <div key={p.id}>
-                                  <img
-                                    src={portraitUrl(p.portrait)}
-                                    width="32"
-                                    height="32"
-                                    alt=""
-                                  />
-                                  <span>
-                                    {p.name}
-                                    {p.bot ? ' · AI' : ''}
-                                  </span>
-                                  <Button
-                                    variant="outline"
-                                    disabled={busy || !online}
-                                    onClick={() =>
-                                      choose({
-                                        action: { type: 'kick', target: p.id },
-                                        title: `Remove ${p.name}?`,
-                                        description:
-                                          'They will leave this waiting table.',
-                                      })
-                                    }
-                                    aria-label={`Remove ${p.name}`}
-                                  >
-                                    Remove
-                                  </Button>
-                                </div>
-                              ))}
-                          </details>
-                        )}
+                      {game.hostId === game.me.id && (
+                        <details className="lobby-player-management">
+                          <summary>Manage players</summary>
+                          {game.players
+                            .filter((p) => p.id !== game.me.id)
+                            .map((p) => (
+                              <div key={p.id}>
+                                <img
+                                  src={portraitUrl(p.portrait)}
+                                  width="32"
+                                  height="32"
+                                  alt=""
+                                />
+                                <span>
+                                  {p.name}
+                                  {p.bot ? ' · AI' : ''}
+                                </span>
+                                <Button
+                                  variant="outline"
+                                  disabled={busy || !online}
+                                  onClick={() =>
+                                    choose({
+                                      action: { type: 'kick', target: p.id },
+                                      title: `Remove ${p.name}?`,
+                                      description:
+                                        'They will leave this waiting table.',
+                                    })
+                                  }
+                                  aria-label={`Remove ${p.name}`}
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                            ))}
+                          <Button
+                            variant="outline"
+                            className="add-bot-button"
+                            disabled={
+                              busy || !online || game.players.length >= 10
+                            }
+                            onClick={() => act({ type: 'add-bot' })}
+                          >
+                            <Bot />{' '}
+                            {game.players.length >= 10
+                              ? 'Table full · 10 players'
+                              : 'Add an AI'}
+                          </Button>
+                        </details>
+                      )}
                     </>
                   ) : (
                     <>
