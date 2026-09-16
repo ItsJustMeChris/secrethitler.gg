@@ -359,7 +359,7 @@ void test('deal and policy cues depend on public events and contain no role or h
   assert.ok(!JSON.stringify(deal).includes('teammates'));
 });
 
-void test('ballots are announced only after simultaneous public reveal', () => {
+void test('election outcome is announced only after everyone votes', () => {
   const { view } = fixture();
   const voting = { ...view, phase: 'voting' as const };
   assert.equal(
@@ -460,7 +460,7 @@ void test('legislative guidance names the actual sender and recipient without de
   }
 });
 
-void test('election reveal waits for all ballots at 5–10 seats and identifies the voted pair after rotation', async () => {
+void test('election result waits for all ballots at 5–10 seats and identifies the voted pair after rotation', async () => {
   for (let count = 5; count <= 10; count++) {
     const { game } = fixture(count);
     applyAction(game, 'p0', { type: 'nominate', target: 'p1' });

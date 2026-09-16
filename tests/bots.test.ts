@@ -96,7 +96,7 @@ void test('bot projections contain badges and public controls but no brain or ot
   assert.equal(view.players.filter((p) => p.bot).length, 6);
 });
 
-void test('planning cannot change when unseen roles, deck, discards or sealed votes change', () => {
+void test('bot plans ignore unseen roles and deck order, and do not follow pending public votes', () => {
   for (const role of ['liberal', 'hitler'] as const) {
     const game = table(7);
     const viewer = game.players[1];
@@ -120,7 +120,8 @@ void test('planning cannot change when unseen roles, deck, discards or sealed vo
     game.votes.human = true;
     const voteView = viewFor(game, viewer.id);
     game.votes.human = false;
-    assert.deepEqual(viewFor(game, viewer.id), voteView);
+    assert.deepEqual(voteView.ballots, { human: true });
+    assert.deepEqual(viewFor(game, viewer.id).ballots, { human: false });
     assert.deepEqual(
       planBot(voteView, freshMemory(), () => 37),
       planBot(viewFor(game, viewer.id), freshMemory(), () => 37),

@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, ChevronDown, Crown, Flag, LockKeyhole, X } from 'lucide-react';
+import { Check, ChevronDown, Crown, Flag, X } from 'lucide-react';
 import type { GameView } from '@/lib/game';
 import {
   policyResultTitle,
@@ -102,13 +102,13 @@ export function PolicyRecap({
 export function PlayerEvent({
   playerId,
   phase,
-  sealed,
+  vote,
   election,
   policy,
 }: {
   playerId: string;
   phase: GameView['phase'];
-  sealed: boolean;
+  vote: boolean | null;
   election: ElectionResult | null;
   policy: PolicyResult | null;
 }) {
@@ -116,9 +116,12 @@ export function PlayerEvent({
   return (
     <div className="player-event-slot">
       {phase === 'voting' ? (
-        sealed ? (
-          <span className="ballot-sealed" aria-label="Ballot sealed">
-            <LockKeyhole size={14} />
+        vote !== null ? (
+          <span
+            className={`player-vote-bubble ${vote ? 'ja' : 'nein'} fresh-event`}
+            aria-label={`Voted ${vote ? 'Ja' : 'Nein'}`}
+          >
+            {vote ? 'Ja!' : 'Nein!'}
           </span>
         ) : null
       ) : policy?.chancellor?.id === playerId ? (

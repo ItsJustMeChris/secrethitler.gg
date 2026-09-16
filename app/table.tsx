@@ -894,6 +894,7 @@ export default function GameTable() {
                     : undefined
                 }
                 count={game?.liberal ?? 0}
+                tracker={game?.tracker ?? 0}
                 players={
                   game?.initialCount || Math.max(game?.players.length ?? 5, 5)
                 }
@@ -1332,7 +1333,7 @@ export default function GameTable() {
                       <PlayerEvent
                         playerId={p.id}
                         phase={game.phase}
-                        sealed={game.voted.includes(p.id)}
+                        vote={game.ballots[p.id] ?? null}
                         election={feedback.election}
                         policy={feedback.policy}
                       />
@@ -1356,6 +1357,11 @@ export default function GameTable() {
                             : 'Disconnected — seat saved'
                         }
                       />
+                      {office?.kind === 'president' ? (
+                        <Crown className="player-office-icon" />
+                      ) : office?.kind === 'chancellor' ? (
+                        <Flag className="player-office-icon" />
+                      ) : null}
                     </div>
                     <div className="player-info">
                       <b>
@@ -1407,7 +1413,7 @@ export default function GameTable() {
                                     : 'Getting settled'
                                   : game.phase === 'voting' &&
                                       game.voted.includes(p.id)
-                                    ? 'Ballot sealed'
+                                    ? 'Voted'
                                     : game.eligible.includes(p.id)
                                       ? 'Eligible for chancellor'
                                       : p.id === game.lastChancellor ||
@@ -1419,11 +1425,7 @@ export default function GameTable() {
                         </span>
                       )}
                     </div>
-                    {office?.kind === 'president' ? (
-                      <Crown className="player-icon" />
-                    ) : office?.kind === 'chancellor' ? (
-                      <Flag className="player-icon" />
-                    ) : !p.alive ? (
+                    {!p.alive ? (
                       <Skull className="player-icon" />
                     ) : game.phase === 'lobby' && p.ready ? (
                       <Check className="player-icon" />
@@ -1845,7 +1847,7 @@ export default function GameTable() {
               <li>
                 <b>Form a government.</b> The president nominates an eligible
                 chancellor. Everyone votes Ja or Nein. A strict majority passes;
-                a tie fails. Ballots reveal together.
+                a tie fails. Votes appear as each player submits them.
               </li>
               <li>
                 <b>Pass a policy.</b> The president draws 3 policies and
@@ -1935,8 +1937,9 @@ export default function GameTable() {
             <p>
               Roles, shuffling, policies, ballots, and legal moves are
               controlled by the server. Your device receives only your own
-              permitted private information. Votes stay sealed until everyone
-              has voted; simultaneous moves cannot overwrite each other.
+              permitted private information. Submitted votes are public; the
+              election finishes after everyone votes. Simultaneous moves cannot
+              overwrite each other.
             </p>
             <p>
               Your seat uses a private browser cookie. Return using the same
@@ -2333,7 +2336,7 @@ function ActionPanel({
     description =
       game.me.ballot === null
         ? 'Do you trust this government? Cast your ballot.'
-        : 'Your ballot is sealed. Waiting for the rest of the chamber.';
+        : 'Your vote is submitted. Waiting for the rest of the chamber.';
   } else if (legislation) {
     title = legislation.title;
     description = legislation.description;
@@ -2354,7 +2357,7 @@ function ActionPanel({
         {game.phase === 'finished'
           ? 'THE REPUBLIC HAS DECIDED'
           : game.phase === 'voting'
-            ? `VOTE FOR THIS GOVERNMENT · ${game.voted.length}/${game.players.filter((p) => p.alive).length} SEALED`
+            ? `VOTE FOR THIS GOVERNMENT · ${game.voted.length}/${game.players.filter((p) => p.alive).length} VOTED`
             : 'ON THE FLOOR'}
       </p>
       {game.phase === 'finished' && <Flag className="victory-mark" size={28} />}
@@ -2401,7 +2404,7 @@ function ActionPanel({
             />
             {game.me.ballot === true && (
               <span>
-                <Check /> SEALED
+                <Check /> VOTED
               </span>
             )}
           </button>
@@ -2419,7 +2422,7 @@ function ActionPanel({
             />
             {game.me.ballot === false && (
               <span>
-                <Check /> SEALED
+                <Check /> VOTED
               </span>
             )}
           </button>

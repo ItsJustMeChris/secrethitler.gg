@@ -26,7 +26,7 @@ export function canSpeak(view: GameView) {
 }
 
 // This function receives precisely the same projection as a human browser.
-// It never receives another seat's role, hand, sealed ballot, or private notes.
+// It never receives another seat's role, hand, or private notes.
 export function observe(view: GameView, memory: BotMemory) {
   for (const entry of view.log.filter((e) => e.id > memory.seenLog)) {
     if (
