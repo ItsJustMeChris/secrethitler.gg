@@ -27,7 +27,15 @@ Each socket owns an independent D1 lease, including multiple tabs with the same 
 
 The deadline is enforced on reads, upgrades and writes. Expired rooms cannot be revived. Expired room rows are physically removed on access or subsequent table creation; deleting a room cascades to its connection rows. Unused session cookies retain their existing seven-day expiry.
 
-`drizzle/0001_websocket_rooms.sql` adds the lease table and room deadline and deliberately deletes **all existing rooms**. Session records remain. Apply the migration and this build together. This invalidates old room links and active matches once applied; users create new rooms under the new lifecycle. Applying local migrations affects only the local database. Production is unchanged until deployment.
+`drizzle/0001_websocket_rooms.sql` adds the lease table and room deadline and deliberately deletes **all existing rooms**. Session records remain. Apply the migration and this build together. This invalidates old room links and active matches once applied; users create new rooms under the new lifecycle. Applying local migrations affects only the local database. A production migration remains applied even if the application is rolled back; do not rewrite an applied migration or its metadata.
+
+## Production deployment blocker — September 16, 2026
+
+The socket build passed the local Worker integration tests and was published as Sites version 20. Live WebSocket handshakes on both `secrethitler.gg` and the generated Sites domain returned HTTP 500 with a Sites dispatch platform-error page. Ordinary page requests returned 200, and a non-upgrade request to `/api/table/live` correctly returned the application's 426 response. The user Worker logs showed canceled upgrade invocations without an application exception. These observations point to the hosted upgrade path; they do not establish its internal cause.
+
+Production was restored to the previously working version 19. Real production HTTP checks then successfully created, restored, and left a table. **The live application therefore still uses the previous HTTP transport; the WebSocket implementation is saved in Git but is not the active release.** Migration `0001_websocket_rooms` was applied during version 20's successful deployment and remains applied, including its one-time room reset. The previous application tolerates the additional schema.
+
+Do not publish this socket-only build on Sites again without resolving and verifying live upgrade support. A WebSocket-capable deployment path is required; removing the remaining server-side D1 revision checks additionally requires a shared room coordinator. Deployment status alone did not verify that WebSocket traffic worked. Keep using real upgrade/command/reconnect checks for the next rollout.
 
 ## Verification
 
