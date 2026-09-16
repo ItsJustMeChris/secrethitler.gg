@@ -1093,17 +1093,6 @@ export default function GameTable() {
                         {me?.ready ? <CheckCheck /> : <Check />}
                         {me?.ready ? 'Ready — click to unready' : 'I’m ready'}
                       </Button>
-                      {game.hostId === game.me.id &&
-                        game.players.length < 10 && (
-                          <Button
-                            variant="ghost"
-                            className="fill-bots-button"
-                            disabled={busy}
-                            onClick={() => act({ type: 'fill-bots' })}
-                          >
-                            Fill all empty seats with AI · 10 players
-                          </Button>
-                        )}
                       {game.hostId === game.me.id && (
                         <Button
                           className="start-button"
@@ -1164,6 +1153,16 @@ export default function GameTable() {
                               ? 'Table full · 10 players'
                               : 'Add an AI'}
                           </Button>
+                          {game.players.length < 10 && (
+                            <Button
+                              variant="ghost"
+                              className="fill-bots-button"
+                              disabled={busy || !online}
+                              onClick={() => act({ type: 'fill-bots' })}
+                            >
+                              Fill all empty seats with AI · 10 players
+                            </Button>
+                          )}
                         </details>
                       )}
                     </>
