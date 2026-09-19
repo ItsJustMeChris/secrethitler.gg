@@ -1,6 +1,7 @@
 // Runs against the real local or hosted worker and D1, without browser automation.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { liveClient } from './live-client.mjs';
 
 const base = process.env.TEST_URL || 'http://localhost:3000';
 const local = ['localhost', '127.0.0.1'].includes(new URL(base).hostname);
@@ -78,6 +79,9 @@ const clients = Array.from({ length: 10 }, () => new Client());
 const host = clients[0];
 let game = await host.request({ operation: 'create', name: 'Host' });
 const code = game.code;
+const live = liveClient(base, host.cookie, code);
+await live.wait((message) => message.type === 'state');
+process.on('uncaughtExceptionMonitor', () => live.close());
 assert.match(code, /^[A-HJ-NP-Z2-9]{8}$/);
 await new Client().request(null, code, { status: 401 });
 const forged = new Client();
@@ -306,3 +310,4 @@ console.log(
   `PASS: full multiplayer game, victory reveal, cookie reconnect, rematch, HTML and official assets (${moves} subsequent actions).`,
 );
 console.log(`Test table: ${code}`);
+live.close();

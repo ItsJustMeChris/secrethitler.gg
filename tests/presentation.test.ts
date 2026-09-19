@@ -15,6 +15,7 @@ import {
 } from '../lib/game-presentation.ts';
 import { closedDossier, dossierReducer } from '../lib/dossier.ts';
 import { createFairness } from '../lib/fairness.ts';
+import { shouldShowElimination } from '../lib/elimination.ts';
 
 function fixture(count = 7) {
   const game = newGame('ABCDEFGH', 'p0', 'Player 0');
@@ -26,6 +27,69 @@ function fixture(count = 7) {
   game.president = 'p0';
   return { game, lobby, view: viewFor(game, 'p0') };
 }
+
+void test('only your execution opens the elimination notice, once per transition or restored match', () => {
+  const { game, view } = fixture();
+  const killed = structuredClone(view);
+  killed.players.find((p) => p.id === killed.me.id)!.alive = false;
+  killed.revision++;
+  assert.equal(shouldShowElimination(view, killed), true);
+  assert.equal(shouldShowElimination(killed, killed), false);
+  assert.equal(
+    shouldShowElimination(killed, { ...killed, revision: killed.revision + 1 }),
+    false,
+  );
+  assert.equal(
+    shouldShowElimination(null, killed),
+    true,
+    'reconnect after a missed execution',
+  );
+  assert.equal(
+    shouldShowElimination(null, view),
+    false,
+    'living seat restoration',
+  );
+  const someoneElse = structuredClone(view);
+  someoneElse.players.find((p) => p.id !== someoneElse.me.id)!.alive = false;
+  assert.equal(shouldShowElimination(view, someoneElse), false);
+  assert.equal(
+    shouldShowElimination({ ...view, revision: 9 }, killed),
+    false,
+    'ignore stale views',
+  );
+  assert.equal(
+    shouldShowElimination(view, { ...killed, phase: 'lobby' }),
+    false,
+  );
+  assert.equal(
+    shouldShowElimination(killed, viewFor(game, 'p1')),
+    false,
+    'another living seat',
+  );
+});
+
+void test('execution ending the match still opens the notice, but other victories do not', () => {
+  const { game } = fixture();
+  const target = game.players.find((p) => p.role === 'hitler')!;
+  const actor = game.players.find((p) => p.id !== target.id)!;
+  game.phase = 'executive';
+  game.power = 'execute';
+  game.president = actor.id;
+  const before = viewFor(game, target.id);
+  const observerBefore = viewFor(game, actor.id);
+  applyAction(game, actor.id, { type: 'power', target: target.id });
+  game.revision++;
+  const after = viewFor(game, target.id);
+  assert.equal(after.phase, 'finished');
+  assert.equal(shouldShowElimination(before, after), true);
+  assert.equal(shouldShowElimination(after, after), false);
+  assert.equal(
+    shouldShowElimination(observerBefore, viewFor(game, actor.id)),
+    false,
+  );
+  applyAction(game, game.hostId, { type: 'rematch' });
+  assert.equal(shouldShowElimination(after, viewFor(game, target.id)), false);
+});
 
 void test('offices follow nominations and rotation for all viewers, independent of their secret role', () => {
   const { game } = fixture();

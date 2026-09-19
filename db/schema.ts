@@ -33,6 +33,9 @@ export const sessions = sqliteTable(
     id: text('id').notNull().unique(),
     expires: integer('expires').notNull(),
     lastSeen: integer('last_seen').notNull(),
+    transferHash: text('transfer_hash').unique(),
+    transferCode: text('transfer_code'),
+    transferExpires: integer('transfer_expires'),
   },
   (table) => [index('sessions_expires').on(table.expires)],
 );

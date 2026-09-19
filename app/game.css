@@ -554,7 +554,7 @@ input::placeholder {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-columns: minmax(0, 1fr) 20.75rem;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 14px 18px;
   padding: 12px 24px;
@@ -775,75 +775,6 @@ input::placeholder {
 }
 .floor-player-picker {
   margin-top: 12px;
-}
-.floor-player-options {
-  border: 0;
-  margin: 0;
-  min-width: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
-  gap: 6px;
-  max-height: min(200px, 25dvh);
-  padding: 3px;
-  overflow: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-}
-.floor-player-option {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  min-height: 58px;
-  padding: 7px 6px;
-  background: var(--paper);
-  color: var(--ink);
-  border: 1px solid var(--strong-line);
-  border-radius: 6px;
-  text-align: left;
-}
-.floor-player-option:hover:not(:disabled),
-.floor-player-option.selected {
-  background: var(--liberal-wash);
-  border-color: var(--liberal-ink);
-}
-.floor-player-option.selected {
-  box-shadow: inset 0 0 0 1px var(--liberal-ink);
-}
-.floor-player-option:disabled {
-  opacity: 0.65;
-}
-.floor-player-option img {
-  width: 32px;
-  height: 36px;
-  object-fit: contain;
-  flex: none;
-}
-.floor-player-info {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  line-height: 1.15;
-}
-.floor-player-info b {
-  font-size: 14px;
-  overflow-wrap: anywhere;
-}
-.floor-player-info small {
-  font-size: 12px;
-  color: var(--muted-ink);
-}
-.floor-player-info .known-role {
-  margin: 0;
-  font-size: 12px;
-}
-.floor-selected-check {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  color: var(--liberal-ink);
 }
 .floor-confirmation {
   display: flex;
@@ -1333,27 +1264,6 @@ input::placeholder {
   color: var(--muted-ink);
   font-size: 12px;
 }
-.players-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-auto-rows: minmax(92px, 1fr);
-  flex: 1;
-  gap: 7px;
-}
-.player {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  min-width: 0;
-  padding: 7px 5px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: var(--ivory);
-  text-align: center;
-}
 .player.president-player,
 .president-office {
   --office-ink: var(--president-ink);
@@ -1370,115 +1280,8 @@ input::placeholder {
   background: var(--office-wash);
   box-shadow: inset 0 3px 0 var(--office-ink);
 }
-.player-number {
-  position: relative;
-  width: 48px;
-  height: 48px;
-  flex: none;
-}
-.player-portrait {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  border-radius: 5px;
-}
-.seat-number {
-  position: absolute;
-  bottom: -3px;
-  left: -5px;
-  padding: 0 3px;
-  border-radius: 3px;
-  color: var(--ivory);
-  background: var(--ink);
-  font-size: 12px;
-  line-height: 16px;
-}
-.player-number .status-dot {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 5px;
-  height: 5px;
-  outline: 2px solid var(--ivory);
-}
-.player-info {
-  width: 100%;
-  min-width: 0;
-  line-height: 1.2;
-}
-.player-info > b {
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.2;
-}
-.player-info > span {
-  display: block;
-  margin-top: 3px;
-  font-size: 12px;
-  color: var(--muted-ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.you-label {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  font-size: 12px;
-  line-height: 1.1;
-  font-weight: 400;
-  color: var(--ink);
-}
-.player-info > .office-label {
-  color: var(--office-ink);
-  font-weight: 700;
-  white-space: normal;
-  overflow: visible;
-}
 .office-short {
   display: none;
-}
-.government-candidates {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  max-width: 440px;
-  margin-inline: auto;
-}
-.government-candidate {
-  min-width: 0;
-  padding: 6px 8px;
-  border: 1px solid var(--office-ink);
-  border-radius: 6px;
-  color: var(--office-ink);
-  background: var(--office-wash);
-  overflow-wrap: anywhere;
-}
-.office-caption {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  font-size: 14px;
-  margin-bottom: 3px;
-}
-.office-caption svg {
-  flex-shrink: 0;
-}
-.player-office-icon {
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  bottom: 0;
-  right: -3px;
-  color: var(--office-ink);
-  background: var(--office-wash);
-  border-radius: 2px;
 }
 .bot-badge {
   display: inline-flex;
@@ -1488,16 +1291,6 @@ input::placeholder {
   color: var(--muted-ink);
   font-weight: 400;
   margin-left: 3px;
-}
-.player .bot-badge {
-  display: inline-block;
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  margin: 0;
-}
-.player .bot-badge svg {
-  display: none;
 }
 .known-role {
   display: block;
@@ -1512,35 +1305,6 @@ input::placeholder {
 .known-role.fascist,
 .known-role.hitler {
   color: var(--fascist-ink);
-}
-.player.eliminated .player-portrait {
-  opacity: 0.45;
-}
-.player.eliminated .player-info > b {
-  text-decoration: line-through;
-}
-.player-icon {
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  top: 5px;
-  right: 5px;
-  color: var(--muted-ink);
-}
-.empty-seat {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  flex-direction: column;
-  gap: 8px;
-  min-height: 92px;
-  padding: 8px;
-  color: var(--muted-ink);
-  font-size: 12px;
-  border: 1px dashed var(--line);
-  border-radius: 7px;
-  background: transparent;
 }
 .has-room .side-panel {
   grid-column: 1;
@@ -1922,6 +1686,7 @@ input::placeholder {
 .guide-dialog,
 .dossier-dialog,
 .seat-dialog,
+.elimination-dialog,
 .confirm-dialog {
   width: min(680px, calc(100vw - 24px));
   max-height: calc(100dvh - 32px);
@@ -1940,6 +1705,9 @@ input::placeholder {
 }
 [data-slot='dialog-close'] {
   color: var(--muted-ink);
+  min-width: 44px;
+  min-height: 44px;
+  z-index: 2;
 }
 .guide-content {
   color: var(--muted-ink);
@@ -2100,21 +1868,6 @@ input::placeholder {
 .private-notes p {
   margin-top: 5px;
 }
-.peek-policies {
-  display: flex;
-  gap: 7px;
-  flex-wrap: wrap;
-  margin-top: 8px;
-}
-.peek-policies span {
-  padding: 6px 9px;
-  border-radius: 5px;
-  font-size: 14px;
-  background: var(--liberal-wash);
-}
-.peek-policies .fascist {
-  background: var(--fascist-wash);
-}
 .confirm-dialog {
   max-width: 450px;
 }
@@ -2137,6 +1890,55 @@ input::placeholder {
 .seat-dialog {
   max-width: 440px;
 }
+.elimination-dialog {
+  max-width: 420px;
+  text-align: center;
+}
+.elimination-dialog [data-slot='dialog-header'] {
+  text-align: center;
+}
+.elimination-dialog [data-slot='dialog-title'] {
+  font-size: clamp(1.75rem, 6vw, 2.25rem);
+}
+.elimination-dialog [data-slot='dialog-description'] {
+  font-size: 1rem;
+}
+.elimination-portrait {
+  position: relative;
+  width: min(100%, 240px);
+  margin: 0 auto;
+  padding-bottom: 14px;
+}
+.elimination-portrait img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.elimination-stamp {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%) rotate(-5deg);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  padding: 5px 12px;
+  font: 700 1rem/1.2 var(--font-typewriter);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.elimination-name {
+  font: 700 1.25rem/1.3 var(--font-heading);
+  overflow-wrap: anywhere;
+}
+.elimination-guidance {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--muted-ink);
+}
 .seat-profile {
   display: flex;
   align-items: center;
@@ -2158,6 +1960,66 @@ input::placeholder {
 }
 .seat-profile .known-role {
   font-size: 16px;
+}
+
+.seat-transfer {
+  border-top: 1px solid currentColor;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+.seat-transfer h3,
+.transfer-card h1 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.seat-transfer p,
+.transfer-card p {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.seat-transfer small,
+.transfer-link > span,
+.transfer-card .transfer-help {
+  font-size: 0.875rem;
+}
+.seat-transfer p:empty {
+  display: none;
+}
+.transfer-link {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+}
+.transfer-link input {
+  width: 100%;
+  min-width: 0;
+  font-size: 0.875rem;
+}
+.seat-transfer .settings-links {
+  flex-wrap: wrap;
+}
+.transfer-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+}
+.transfer-card {
+  width: min(100%, 34rem);
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+  display: grid;
+  gap: 1rem;
+}
+.transfer-card h1 {
+  font-size: clamp(1.5rem, 5vw, 2rem);
+}
+.transfer-card .primary-button {
+  white-space: normal;
+  height: auto;
+  min-height: 2.75rem;
 }
 .settings-dialog {
   max-width: 560px;
@@ -2484,7 +2346,7 @@ input::placeholder {
 @media (min-width: 1280px) {
   .workspace.has-room.desktop-chat-layout {
     max-width: 1780px;
-    grid-template-columns: minmax(0, 1fr) 232px minmax(290px, 320px);
+    grid-template-columns: minmax(0, 1fr) 20.75rem minmax(290px, 320px);
     column-gap: 14px;
   }
 }
@@ -2509,22 +2371,6 @@ input::placeholder {
   .start-screen {
     gap: 28px;
     grid-template-columns: minmax(0, 1fr) 370px;
-  }
-}
-@media (min-width: 701px) and (max-height: 900px) {
-  .player {
-    padding: 5px 3px;
-    gap: 3px;
-  }
-  .player-number {
-    width: 36px;
-    height: 36px;
-  }
-  .player-info {
-    line-height: 1.2;
-  }
-  .players-grid {
-    grid-auto-rows: minmax(84px, 1fr);
   }
 }
 @media (max-width: 700px) {
@@ -2672,59 +2518,10 @@ input::placeholder {
   .players-heading h2 {
     font-size: 14px;
   }
-  .players-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    grid-auto-rows: auto;
-    gap: 4px;
-  }
-  .player {
-    min-height: 68px;
-    padding: 5px 2px;
-    gap: 3px;
-    border-radius: 5px;
-  }
-  .player-number {
-    width: 36px;
-    height: 36px;
-  }
-  .player-info > b {
-    font-size: 14px;
-  }
-  .player-info > span {
-    font-size: 12px;
-    margin-top: 2px;
-    line-height: 1.05;
-  }
   .known-role {
     font-size: 14px;
     margin-top: 2px;
     line-height: 1.05;
-  }
-  .you-label {
-    font-size: 12px;
-    top: 1px;
-    left: 2px;
-  }
-  .player-icon {
-    width: 12px;
-    height: 12px;
-    top: 2px;
-    right: 2px;
-  }
-  .seat-number {
-    font-size: 12px;
-    line-height: 13px;
-    left: -4px;
-    bottom: -1px;
-  }
-  .empty-seat {
-    min-height: 68px;
-    padding: 4px;
-    gap: 4px;
-  }
-  .empty-seat svg {
-    width: 16px;
-    height: 16px;
   }
   .chamber,
   .has-room .side-panel {
@@ -2980,9 +2777,6 @@ input::placeholder {
     align-self: start;
     max-height: none;
   }
-  .players-grid {
-    grid-auto-rows: minmax(86px, auto);
-  }
   .desktop-chat {
     align-self: start;
     position: sticky;
@@ -2993,9 +2787,6 @@ input::placeholder {
 @media (max-height: 620px) and (max-width: 700px) {
   .board-surface {
     min-height: 0;
-  }
-  .players-grid {
-    grid-auto-rows: auto;
   }
   .chat-popover {
     height: min(380px, calc(100dvh - 70px), var(--available-height, 380px));
@@ -3008,5 +2799,293 @@ input::placeholder {
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Player cards share the 500 × 713 secret-role card proportions everywhere. */
+:root {
+  --player-card-width: 6.5rem;
+  --role-card-ratio: 500 / 713;
+}
+.players-panel {
+  align-self: start;
+  max-height: 100%;
+}
+.players-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(6rem, 1fr));
+  gap: 8px;
+  align-content: start;
+}
+.player {
+  position: relative;
+  min-width: 0;
+}
+.player-card {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  width: 100%;
+  aspect-ratio: var(--role-card-ratio);
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid var(--strong-line);
+  border-radius: 10px;
+  color: var(--ink);
+  background: var(--paper);
+  box-shadow: 0 2px 0 #9c896955;
+  text-align: center;
+  font-family: var(--font-sans);
+}
+.player-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  font: 600 0.75rem/1 var(--font-typewriter);
+  padding: 2px 2px 4px;
+}
+.player-card-header .status-dot {
+  width: 5px;
+  height: 5px;
+  margin: 0;
+}
+.player-card-art {
+  display: block;
+  position: relative;
+  min-height: 0;
+  background: #c4b798;
+  border-radius: 3px 3px 0 0;
+}
+.player-card-art > img {
+  display: block;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  inset: 0;
+}
+.player-card-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 2.5em;
+  padding: 2px;
+  background: var(--ink);
+  color: var(--ivory);
+  font: 700 0.875rem/1.1 var(--font-heading);
+  overflow-wrap: anywhere;
+  overflow: hidden;
+}
+.player-card-footer {
+  display: flex;
+  flex-direction: column;
+  padding-top: 4px;
+  gap: 2px;
+  line-height: 1;
+}
+.player-card-name > span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.player-card-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.player-card-status svg {
+  flex: none;
+}
+.player-card-detail,
+.player-card .known-role {
+  display: block;
+  font-size: 0.75rem;
+  margin: 0;
+  min-height: 1em;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.player-card.president-office,
+.player-card.chancellor-office {
+  border-color: var(--office-ink);
+  box-shadow: 0 2px 0 var(--office-ink);
+}
+.player-card.president-office .player-card-art,
+.player-card.chancellor-office .player-card-art {
+  background: var(--office-wash);
+}
+.player-card.president-office .player-card-status,
+.player-card.chancellor-office .player-card-status {
+  color: var(--office-ink);
+  font-weight: 700;
+}
+.player-card.eliminated .player-card-name {
+  text-decoration: line-through;
+}
+.player-card.eliminated .player-card-art {
+  background: #b6afa0;
+}
+.player-card .player-event-slot {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  margin: 0;
+  height: auto;
+  transform: translateY(-2px);
+}
+.empty-seat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-direction: column;
+  min-width: 0;
+  aspect-ratio: var(--role-card-ratio);
+  padding: 6px;
+  border: 1px dashed var(--strong-line);
+  border-radius: 10px;
+  font: 0.75rem/1.2 var(--font-sans);
+  color: var(--muted-ink);
+}
+.floor-player-options {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--player-card-width);
+  grid-template-rows: auto;
+  justify-content: start;
+  gap: 10px;
+  margin: 0;
+  padding: 4px 3px 8px;
+  min-width: 0;
+  border: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+}
+.floor-player-option {
+  display: flex;
+  flex-direction: column;
+  align-self: start;
+  gap: 5px;
+  position: relative;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  text-align: center;
+}
+.floor-player-option:hover:not(:disabled) .player-card,
+.floor-player-option.selected .player-card {
+  outline: 3px solid var(--liberal-ink);
+  outline-offset: 1px;
+}
+.floor-player-option:disabled {
+  opacity: 0.65;
+}
+.player-option-reason {
+  font-size: 0.75rem;
+  line-height: 1.15;
+}
+.floor-selected-check {
+  position: absolute;
+  top: 1.5rem;
+  right: 7px;
+  padding: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--liberal-ink);
+  color: var(--ivory);
+}
+.government-candidates {
+  display: grid;
+  grid-template-columns: repeat(2, var(--player-card-width));
+  justify-content: center;
+  gap: 14px;
+  margin: 8px 0;
+}
+.policy-choice {
+  width: var(--player-card-width);
+}
+.peek-policies {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.peek-policies li {
+  width: var(--player-card-width);
+  min-width: 0;
+}
+.peek-policies li > span {
+  display: block;
+  margin-top: 4px;
+  text-align: center;
+  font: 0.875rem/1.2 var(--font-sans);
+}
+.floor-private-result > div {
+  min-width: 0;
+}
+.membership-card {
+  width: 100%;
+  aspect-ratio: var(--role-card-ratio);
+  object-fit: contain;
+  display: block;
+  border-radius: 10px;
+}
+.investigation-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 160px));
+  justify-content: center;
+  align-items: start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.investigation-content > p {
+  font-size: 1rem;
+}
+@media (min-width: 1600px) {
+  .workspace.has-room.desktop-chat-layout {
+    grid-template-columns: minmax(0, 1fr) 350px minmax(290px, 320px);
+  }
+  .players-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .players-panel {
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    padding: 8px;
+  }
+  .players-grid {
+    grid-template-columns: repeat(5, minmax(var(--player-card-width), 1fr));
+    gap: 8px;
+    padding-bottom: 5px;
+  }
+  .players-heading {
+    position: sticky;
+    left: 0;
+  }
+  .policy-choice {
+    width: var(--player-card-width);
+  }
+}
+@media (min-width: 701px) and (max-width: 1000px) {
+  .players-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
