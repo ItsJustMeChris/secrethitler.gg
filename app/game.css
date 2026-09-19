@@ -535,9 +535,7 @@ input::placeholder {
 .in-room {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
-  min-height: 0;
-  overflow: hidden;
+  min-height: 100dvh;
 }
 .in-room .masthead {
   height: 54px;
@@ -555,9 +553,22 @@ input::placeholder {
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 20.75rem;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-content: start;
   gap: 14px 18px;
   padding: 12px 24px;
+}
+.entry-column {
+  display: contents;
+}
+.table-column {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-self: start;
+  gap: 14px;
 }
 .has-room .workspace-heading {
   grid-column: 1/-1;
@@ -596,13 +607,12 @@ input::placeholder {
   height: 15px;
 }
 .chamber {
-  grid-column: 1;
-  grid-row: 2;
   min-width: 0;
-  min-height: 0;
+  /* Keep the original board size, but let long decisions extend the page. */
+  min-height: calc(100dvh - 184px);
   position: relative;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(280px, 1fr) auto;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--paper);
@@ -743,10 +753,8 @@ input::placeholder {
 }
 .turn-action {
   grid-row: 3;
-  max-height: 43dvh;
   min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
+  overflow: visible;
   border-top: 1px solid var(--line);
   background: var(--ivory);
 }
@@ -1239,8 +1247,7 @@ input::placeholder {
   display: flex;
   flex-direction: column;
   padding: 12px;
-  overflow: auto;
-  overscroll-behavior: contain;
+  overflow: visible;
 }
 .players-heading {
   display: flex;
@@ -1306,15 +1313,6 @@ input::placeholder {
 .known-role.hitler {
   color: var(--fascist-ink);
 }
-.has-room .side-panel {
-  grid-column: 1;
-  grid-row: 2;
-  min-height: 0;
-  overflow: auto;
-}
-.seat-card {
-  min-height: 100%;
-}
 .seat-identity {
   display: flex;
   align-items: center;
@@ -1377,13 +1375,15 @@ input::placeholder {
   background: transparent;
 }
 .game-dock {
-  height: 48px;
+  min-height: 48px;
   flex: none;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 18px;
-  padding: 0 26px 0 130px;
+  padding: 4px max(24px, env(safe-area-inset-right))
+    max(4px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  flex-wrap: wrap;
   border-top: 1px solid var(--line);
   background: var(--canvas);
 }
@@ -1402,30 +1402,8 @@ input::placeholder {
   color: var(--muted-ink);
   background: transparent;
 }
-.chat-launcher {
-  position: fixed;
-  bottom: max(4px, env(safe-area-inset-bottom));
-  left: max(24px, env(safe-area-inset-left));
-  z-index: 35;
-  height: 40px;
-  min-width: 90px;
-  padding: 8px 12px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  background: var(--ink);
-  color: var(--canvas);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  font-size: 14px;
-}
-.chat-launcher:hover {
-  background: var(--fascist-ink);
-  color: var(--ivory);
-}
-.chat-launcher svg {
-  width: 17px;
-  height: 17px;
+.conversation-link {
+  margin-right: auto;
 }
 .chat-unread {
   font-size: 12px;
@@ -1434,43 +1412,16 @@ input::placeholder {
   border-radius: 8px;
   padding: 0 5px;
 }
-.chat-popover {
-  width: min(390px, calc(100vw - 20px)) !important;
-  height: min(530px, calc(100dvh - 88px), var(--available-height, 530px));
-  max-height: var(--available-height);
-  padding: 0 !important;
-  gap: 0 !important;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 10px !important;
-  box-shadow: 0 10px 40px #0007;
-}
-.chat-popover-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex: none;
-  padding: 7px 12px;
-  border-bottom: 1px solid var(--line);
-}
-.chat-popover-heading [data-slot='popover-title'] {
-  font-size: 16px;
-}
-.chat-popover-heading button {
-  min-width: 38px;
-  min-height: 38px;
-  color: var(--muted-ink);
-}
-.desktop-chat {
-  grid-column: 3;
-  grid-row: 2;
+.table-conversation {
+  height: 24rem;
+  scroll-margin-block: 12px;
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
 }
-.desktop-chat-heading {
+.conversation-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1479,13 +1430,13 @@ input::placeholder {
   flex: none;
   border-bottom: 1px solid var(--line);
 }
-.desktop-chat-heading h2 {
+.conversation-heading h2 {
   font-size: 16px;
 }
-.desktop-chat .conversation {
+.table-conversation .conversation {
   overflow: hidden;
 }
-.desktop-chat .chat-form input {
+.table-conversation .chat-form input {
   padding-inline: 10px;
 }
 .conversation {
@@ -1537,7 +1488,7 @@ input::placeholder {
   min-height: 0;
   overflow: auto;
   padding: 14px;
-  overscroll-behavior: contain;
+  overscroll-behavior: auto;
   scrollbar-width: thin;
 }
 .chat-empty {
@@ -2342,11 +2293,11 @@ input::placeholder {
   transition: none !important;
   scroll-behavior: auto !important;
 }
-/* Match the live media query in GameTable; narrower windows use the chat popover. */
+/* Preserve the board column's width when moving the 320px chat column below it. */
 @media (min-width: 1280px) {
-  .workspace.has-room.desktop-chat-layout {
-    max-width: 1780px;
-    grid-template-columns: minmax(0, 1fr) 20.75rem minmax(290px, 320px);
+  .workspace.has-room {
+    width: calc(100% - 334px);
+    max-width: 1446px;
     column-gap: 14px;
   }
 }
@@ -2464,7 +2415,7 @@ input::placeholder {
   }
   .workspace.has-room {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto minmax(min-content, 1fr);
+    grid-template-rows: auto auto auto;
     padding: 8px;
     gap: 8px;
   }
@@ -2523,12 +2474,13 @@ input::placeholder {
     margin-top: 2px;
     line-height: 1.05;
   }
-  .chamber,
-  .has-room .side-panel {
+  .table-column {
     grid-column: 1;
     grid-row: 3;
+    gap: 8px;
   }
   .chamber {
+    min-height: 0;
     border-radius: 8px;
     grid-template-rows: auto auto auto;
     align-content: start;
@@ -2587,11 +2539,6 @@ input::placeholder {
   .turn-action {
     max-height: none;
     overflow: visible;
-  }
-  .game-dock {
-    position: sticky;
-    bottom: 0;
-    z-index: 30;
   }
   .action-panel {
     padding: 10px;
@@ -2661,10 +2608,10 @@ input::placeholder {
     margin-top: 14px;
   }
   .game-dock {
-    height: calc(46px + env(safe-area-inset-bottom));
-    padding: 0 12px 0 115px;
+    min-height: calc(46px + env(safe-area-inset-bottom));
+    padding: 4px max(12px, env(safe-area-inset-right))
+      max(4px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
     gap: 8px;
-    padding-bottom: env(safe-area-inset-bottom);
   }
   .dock-status {
     font-size: 12px;
@@ -2675,13 +2622,6 @@ input::placeholder {
   }
   .dock-button > svg {
     width: 15px;
-  }
-  .chat-launcher {
-    left: max(8px, env(safe-area-inset-left));
-    min-width: 86px;
-    bottom: max(3px, env(safe-area-inset-bottom));
-    font-size: 14px;
-    height: 39px;
   }
   .guide-dialog,
   .dossier-dialog,
@@ -2748,50 +2688,6 @@ input::placeholder {
     gap: 6px;
   }
 }
-/* Short landscape screens and enlarged text may scroll; no controls are clipped. */
-@media (max-height: 620px) {
-  .in-room {
-    height: auto;
-    min-height: 100dvh;
-    overflow: visible;
-  }
-  .workspace.has-room {
-    min-height: 540px;
-  }
-  .board-surface {
-    min-height: 280px;
-  }
-  .turn-action {
-    max-height: none;
-    overflow: visible;
-  }
-  .game-dock {
-    position: sticky;
-    bottom: 0;
-    z-index: 30;
-  }
-  .chat-launcher {
-    z-index: 35;
-  }
-  .players-panel {
-    align-self: start;
-    max-height: none;
-  }
-  .desktop-chat {
-    align-self: start;
-    position: sticky;
-    top: 12px;
-    height: max(320px, calc(100dvh - 76px));
-  }
-}
-@media (max-height: 620px) and (max-width: 700px) {
-  .board-surface {
-    min-height: 0;
-  }
-  .chat-popover {
-    height: min(380px, calc(100dvh - 70px), var(--available-height, 380px));
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -2809,13 +2705,18 @@ input::placeholder {
 }
 .players-panel {
   align-self: start;
-  max-height: 100%;
 }
 .players-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(6rem, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: start;
   gap: 8px;
-  align-content: start;
+}
+.players-grid > .player,
+.players-grid > .empty-seat {
+  flex: 0 1 6rem;
+  width: 6rem;
 }
 .player {
   position: relative;
@@ -3058,34 +2959,15 @@ input::placeholder {
   font-size: 1rem;
 }
 @media (min-width: 1600px) {
-  .workspace.has-room.desktop-chat-layout {
-    grid-template-columns: minmax(0, 1fr) 350px minmax(290px, 320px);
-  }
-  .players-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .workspace.has-room {
+    grid-template-columns: minmax(0, 1fr) 350px;
   }
 }
 @media (max-width: 700px) {
   .players-panel {
-    overflow-x: auto;
-    overscroll-behavior-inline: contain;
     padding: 8px;
-  }
-  .players-grid {
-    grid-template-columns: repeat(5, minmax(var(--player-card-width), 1fr));
-    gap: 8px;
-    padding-bottom: 5px;
-  }
-  .players-heading {
-    position: sticky;
-    left: 0;
   }
   .policy-choice {
     width: var(--player-card-width);
-  }
-}
-@media (min-width: 701px) and (max-width: 1000px) {
-  .players-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

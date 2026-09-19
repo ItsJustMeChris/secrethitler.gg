@@ -60,12 +60,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import {
-  Popover,
-  PopoverContent,
-  PopoverTitle,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -79,7 +73,6 @@ import { PortraitPicker } from './portrait-picker';
 import { ElectionRecap, PlayerEvent, PolicyRecap } from './table-events';
 import { InvestigationDialog } from './investigation-dialog';
 import { PORTRAITS, isPortrait, portraitUrl } from '@/lib/portraits';
-import { playerKnowledge } from '@/lib/player-knowledge';
 
 type View = TableView;
 const powerNames: Record<Power, string> = {
@@ -128,10 +121,9 @@ export default function GameTable() {
   const [copied, setCopied] = useState(false);
   const [seatOpen, setSeatOpen] = useState(false);
   const [eliminationOpen, setEliminationOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
-  const chatOpenRef = useRef(false);
-  const [desktopChat, setDesktopChat] = useState(false);
-  const desktopChatRef = useRef(false);
+  const conversationRef = useRef<HTMLElement>(null);
+  const conversationVisibleRef = useRef(false);
+  const [conversationVisible, setConversationVisible] = useState(false);
   const [chatTab, setChatTab] = useState('chat');
   const chatTabRef = useRef('chat');
   const [chatDraft, setChatDraft] = useState('');
@@ -150,16 +142,10 @@ export default function GameTable() {
   const gameRef = useRef<View | null>(null);
   const pending = useRef(false);
   const connection = useRef<ReturnType<typeof connectTable> | null>(null);
-  const changeChatOpen = (open: boolean) => {
-    chatOpenRef.current = open;
-    setChatOpen(open);
-    if (open && chatTabRef.current === 'chat')
-      setLastReadMessage(gameRef.current?.messages.at(-1)?.id ?? '');
-  };
   const changeChatTab = (tab: string) => {
     chatTabRef.current = tab;
     setChatTab(tab);
-    if (tab === 'chat')
+    if (tab === 'chat' && conversationVisibleRef.current)
       setLastReadMessage(gameRef.current?.messages.at(-1)?.id ?? '');
   };
   const accept = useCallback(
@@ -203,8 +189,6 @@ export default function GameTable() {
           setRules(false);
           setPrivacy(false);
           setChoice(null);
-          chatOpenRef.current = false;
-          setChatOpen(false);
         }
       }
       if (
@@ -215,8 +199,6 @@ export default function GameTable() {
         setSettingsOpen(false);
         setRules(false);
         setPrivacy(false);
-        chatOpenRef.current = false;
-        setChatOpen(false);
       }
       if (shouldShowElimination(current, next)) {
         // Give the elimination notice focus instead of stacking it over a
@@ -229,22 +211,15 @@ export default function GameTable() {
         setChoice(null);
         setPrivateResult(null);
         setInvestigationOpen(false);
-        chatOpenRef.current = false;
-        setChatOpen(false);
         setEliminationOpen(true);
       }
       if (current?.code !== next.code) {
-        chatOpenRef.current = false;
-        setChatOpen(false);
         setChatDraft('');
         chatTabRef.current = 'chat';
         setChatTab('chat');
         setLastReadMessage(next.messages.at(-1)?.id ?? '');
       }
-      if (
-        (chatOpenRef.current || desktopChatRef.current) &&
-        chatTabRef.current === 'chat'
-      )
+      if (conversationVisibleRef.current && chatTabRef.current === 'chat')
         setLastReadMessage(next.messages.at(-1)?.id ?? '');
       gameRef.current = next;
       setGame(next);
@@ -270,7 +245,6 @@ export default function GameTable() {
     setEliminationOpen(false);
     setPrivateResult(null);
     setInvestigationOpen(false);
-    changeChatOpen(false);
     setChatDraft('');
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   };
@@ -325,22 +299,31 @@ export default function GameTable() {
   }, [accept]);
 
   useEffect(() => {
-    // Keep this breakpoint aligned with .desktop-chat-layout in game.css.
-    const media = window.matchMedia('(min-width: 1280px)');
+    const panel = conversationRef.current;
+    if (!panel) return;
+    let inView = false;
     const changed = () => {
-      desktopChatRef.current = media.matches;
-      setDesktopChat(media.matches);
-      if (media.matches) {
-        chatOpenRef.current = false;
-        setChatOpen(false);
-        if (chatTabRef.current === 'chat')
-          setLastReadMessage(gameRef.current?.messages.at(-1)?.id ?? '');
-      }
+      const visible = inView && !document.hidden;
+      conversationVisibleRef.current = visible;
+      setConversationVisible(visible);
+      if (visible && chatTabRef.current === 'chat')
+        setLastReadMessage(gameRef.current?.messages.at(-1)?.id ?? '');
     };
-    changed();
-    media.addEventListener('change', changed);
-    return () => media.removeEventListener('change', changed);
-  }, []);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        inView = entry.isIntersecting && entry.intersectionRatio >= 0.1;
+        changed();
+      },
+      { threshold: 0.1 },
+    );
+    observer.observe(panel);
+    document.addEventListener('visibilitychange', changed);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('visibilitychange', changed);
+      conversationVisibleRef.current = false;
+    };
+  }, [game?.code]);
 
   useEffect(() => {
     const changed = () => setFullScreen(!!document.fullscreenElement);
@@ -551,7 +534,7 @@ export default function GameTable() {
     (player) => player.id === privateResult?.targetId,
   );
   const unreadChat =
-    (!(chatOpen || desktopChat) || chatTab !== 'chat') && game
+    (!conversationVisible || chatTab !== 'chat') && game
       ? game.messages
           .slice(game.messages.findIndex((m) => m.id === lastReadMessage) + 1)
           .filter((m) => m.playerId !== game.me.id).length
@@ -633,7 +616,7 @@ export default function GameTable() {
       </header>
 
       <main
-        className={`workspace ${game ? `has-room ${game.phase}` : 'start-screen'} ${game && desktopChat ? 'desktop-chat-layout' : ''} ${seatOpen ? 'seat-open' : ''}`}
+        className={`workspace ${game ? `has-room ${game.phase}` : 'start-screen'} ${seatOpen ? 'seat-open' : ''}`}
       >
         <div className="workspace-heading">
           <div>
@@ -742,513 +725,543 @@ export default function GameTable() {
             </Button>
           </section>
         )}
-        {inGame && (
-          <section
-            className={`chamber ${isYourTurn(game) ? 'your-turn' : ''}`}
-            aria-label="Game table"
-          >
-            <div className="chamber-bar">
-              <span>
-                <span className="status-dot" />
-                {phaseNames[game.phase]}
-              </span>
-              <span className={isYourTurn(game) ? 'turn-tag' : ''}>
-                {isYourTurn(game)
-                  ? 'YOUR TURN'
-                  : `ROUND ${String(game.round).padStart(2, '0')}`}
-              </span>
-            </div>
-            {inGame && (
-              <div className="turn-action">
-                {lastPolicy &&
-                  (lastPolicy.round === game.round ||
-                    (game.phase === 'nomination' &&
-                      lastPolicy.round === game.round - 1)) && (
-                    <PolicyRecap
-                      key={lastPolicy.id}
-                      result={lastPolicy}
-                      fresh={feedback.policy?.id === lastPolicy.id}
+        <div className={game ? 'table-column' : 'entry-column'}>
+          {inGame && (
+            <section
+              className={`chamber ${isYourTurn(game) ? 'your-turn' : ''}`}
+              aria-label="Game table"
+            >
+              <div className="chamber-bar">
+                <span>
+                  <span className="status-dot" />
+                  {phaseNames[game.phase]}
+                </span>
+                <span className={isYourTurn(game) ? 'turn-tag' : ''}>
+                  {isYourTurn(game)
+                    ? 'YOUR TURN'
+                    : `ROUND ${String(game.round).padStart(2, '0')}`}
+                </span>
+              </div>
+              <div className="board-surface">
+                <PolicyBoard
+                  kind="liberal"
+                  highlightedCount={
+                    feedback.policy?.kind === 'liberal'
+                      ? feedback.policy.count
+                      : undefined
+                  }
+                  count={game?.liberal ?? 0}
+                  tracker={game?.tracker ?? 0}
+                  players={
+                    game?.initialCount || Math.max(game?.players.length ?? 5, 5)
+                  }
+                />
+                <PolicyBoard
+                  kind="fascist"
+                  highlightedCount={
+                    feedback.policy?.kind === 'fascist'
+                      ? feedback.policy.count
+                      : undefined
+                  }
+                  count={game?.fascist ?? 0}
+                  players={
+                    game?.initialCount || Math.max(game?.players.length ?? 5, 5)
+                  }
+                />
+                <div className="deck-tracker">
+                  <div className="deck-count">
+                    <FileText size={20} />
+                    <span>
+                      <b>{inGame ? game.drawCount : 17}</b> draw
+                      <span className="muted">
+                        {' '}
+                        / {game?.discardCount ?? 0} discarded
+                      </span>
+                    </span>
+                  </div>
+                  <div className="election-tracker">
+                    <span>ELECTION TRACKER</span>
+                    <div className="tracker-steps">
+                      {[0, 1, 2, 3].map((n) => (
+                        <span
+                          key={n}
+                          title={
+                            n === 3
+                              ? 'Chaos: enact the top policy'
+                              : `${n} failed governments`
+                          }
+                          className={`tracker-dot ${n === (game?.tracker ?? 0) ? 'current' : ''}`}
+                        >
+                          {n === 3 ? <Flag size={12} /> : n}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {inGame && (
+                <div className="turn-action">
+                  {lastPolicy &&
+                    (lastPolicy.round === game.round ||
+                      (game.phase === 'nomination' &&
+                        lastPolicy.round === game.round - 1)) && (
+                      <PolicyRecap
+                        key={lastPolicy.id}
+                        result={lastPolicy}
+                        fresh={feedback.policy?.id === lastPolicy.id}
+                      />
+                    )}
+                  {lastElection && game.phase !== 'voting' && (
+                    <ElectionRecap
+                      key={lastElection.id}
+                      result={lastElection}
+                      fresh={feedback.election?.id === lastElection.id}
                     />
                   )}
-                {lastElection && game.phase !== 'voting' && (
-                  <ElectionRecap
-                    key={lastElection.id}
-                    result={lastElection}
-                    fresh={feedback.election?.id === lastElection.id}
-                  />
-                )}
-                {privateResult && (
-                  <section
-                    className="floor-private-result"
-                    aria-label="Your private result"
-                  >
-                    <div>
-                      <p className="eyebrow">
-                        <Eye size={14} /> PRIVATE TO YOU
-                      </p>
-                      {privateResult.party && investigatedPlayer ? (
-                        <>
-                          <p>Investigation complete.</p>
-                          <Button
-                            variant="outline"
-                            className="investigation-review"
-                            onClick={() => setInvestigationOpen(true)}
-                          >
-                            <Eye size={16} /> Review private result
-                          </Button>
-                        </>
-                      ) : (
-                        <p>{privateResult.text}</p>
-                      )}
-                      {privateResult.policies && (
-                        <PolicyPeek policies={privateResult.policies} />
-                      )}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Dismiss private result"
-                      onClick={() => setPrivateResult(null)}
+                  {privateResult && (
+                    <section
+                      className="floor-private-result"
+                      aria-label="Your private result"
                     >
-                      <X size={16} />
-                    </Button>
-                  </section>
-                )}
-                <ActionPanel
-                  key={`${game.code}-${game.fairness?.id}-${game.me.id}-${game.round}-${game.phase}-${game.president}-${game.chancellor}-${game.power}`}
-                  game={game}
-                  busy={busy || !online}
-                  act={act}
-                />
-                {coaching && (
-                  <details className="coach-peek">
-                    <summary>
-                      <BookOpen size={14} />
-                      Coach · {coachTip(game).title}
-                    </summary>
-                    <CoachCard game={game} />
-                  </details>
-                )}
-              </div>
-            )}
-            <div className="board-surface">
-              <PolicyBoard
-                kind="liberal"
-                highlightedCount={
-                  feedback.policy?.kind === 'liberal'
-                    ? feedback.policy.count
-                    : undefined
-                }
-                count={game?.liberal ?? 0}
-                tracker={game?.tracker ?? 0}
-                players={
-                  game?.initialCount || Math.max(game?.players.length ?? 5, 5)
-                }
-              />
-              <PolicyBoard
-                kind="fascist"
-                highlightedCount={
-                  feedback.policy?.kind === 'fascist'
-                    ? feedback.policy.count
-                    : undefined
-                }
-                count={game?.fascist ?? 0}
-                players={
-                  game?.initialCount || Math.max(game?.players.length ?? 5, 5)
-                }
-              />
-              <div className="deck-tracker">
-                <div className="deck-count">
-                  <FileText size={20} />
-                  <span>
-                    <b>{inGame ? game.drawCount : 17}</b> draw
-                    <span className="muted">
-                      {' '}
-                      / {game?.discardCount ?? 0} discarded
-                    </span>
-                  </span>
-                </div>
-                <div className="election-tracker">
-                  <span>ELECTION TRACKER</span>
-                  <div className="tracker-steps">
-                    {[0, 1, 2, 3].map((n) => (
-                      <span
-                        key={n}
-                        title={
-                          n === 3
-                            ? 'Chaos: enact the top policy'
-                            : `${n} failed governments`
-                        }
-                        className={`tracker-dot ${n === (game?.tracker ?? 0) ? 'current' : ''}`}
-                      >
-                        {n === 3 ? <Flag size={12} /> : n}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-            {feedback.cue &&
-              feedback.cue.kind !== 'election' &&
-              !(feedback.cue.kind === 'policy' && feedback.policy) && (
-                <output
-                  className={`table-cue ${feedback.cue.party ?? ''} cue-${feedback.cue.kind}`}
-                  key={feedback.cue.id}
-                >
-                  <span className="cue-rule" />
-                  <b>{feedback.cue.title}</b>
-                  <span>{feedback.cue.detail}</span>
-                </output>
-              )}
-          </section>
-        )}
-
-        {(!game || game.phase === 'lobby') && (
-          <aside
-            className="side-panel"
-            aria-label={game ? 'Your seat' : 'Create or join a table'}
-          >
-            {!game ? (
-              <div className="entry-card paper">
-                <div className="paper-top">
-                  <span>YOUR INVITATION</span>
-                  <LockKeyhole size={17} />
-                </div>
-                <h2>Take your seat</h2>
-                <p>Invite your friends. Fill the empty seats with AI.</p>
-                <Tabs
-                  value={entry}
-                  onValueChange={(v) =>
-                    setEntry(v as 'create' | 'join' | 'solo')
-                  }
-                >
-                  <TabsList className="entry-tabs">
-                    <TabsTrigger value="create">Create</TabsTrigger>
-                    <TabsTrigger value="join">Join</TabsTrigger>
-                    <TabsTrigger value="solo">
-                      <Bot size={16} /> Play solo
-                    </TabsTrigger>
-                  </TabsList>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void enter(entry);
-                    }}
-                  >
-                    <label className="field-label" htmlFor="display-name">
-                      YOUR DISPLAY NAME
-                    </label>
-                    <input
-                      id="display-name"
-                      autoComplete="off"
-                      minLength={2}
-                      maxLength={24}
-                      placeholder="What should we call you?"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      required
-                    />
-                    {entry === 'join' && (
-                      <>
-                        <label className="field-label" htmlFor="room-code">
-                          ROOM CODE
-                        </label>
-                        <input
-                          id="room-code"
-                          className="code-input"
-                          autoCapitalize="characters"
-                          autoComplete="off"
-                          spellCheck={false}
-                          minLength={8}
-                          maxLength={9}
-                          placeholder="ABCD EFGH"
-                          value={code}
-                          onChange={(e) =>
-                            setCode(e.target.value.toUpperCase())
-                          }
-                          required
-                        />
-                      </>
-                    )}
-                    {entry === 'solo' && (
-                      <div className="solo-options">
-                        <label
-                          className="field-label"
-                          id="solo-size-label"
-                          htmlFor="solo-size"
-                        >
-                          TABLE SIZE
-                        </label>
-                        <Select
-                          value={seats}
-                          onValueChange={(v) => {
-                            if (v) setSeats(v);
-                          }}
-                        >
-                          <SelectTrigger
-                            id="solo-size"
-                            aria-labelledby="solo-size-label"
-                            className="solo-size"
-                          >
-                            <SelectValue>
-                              {seats} players · you + {Number(seats) - 1} AI
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {[5, 6, 7, 8, 9, 10].map((n) => (
-                              <SelectItem key={n} value={String(n)}>
-                                {n} players · you + {n - 1} AI
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <p>
-                          Original rules, secret roles, and a coach you can turn
-                          off. Five players is a good first table.
+                      <div>
+                        <p className="eyebrow">
+                          <Eye size={14} /> PRIVATE TO YOU
                         </p>
-                      </div>
-                    )}
-                    <PortraitPicker
-                      value={portrait}
-                      onChange={setPortrait}
-                      disabled={busy || restoring || !online}
-                    />
-                    <Button
-                      className="primary-button"
-                      type="submit"
-                      disabled={busy || restoring || !online}
-                    >
-                      {busy
-                        ? 'Taking your seat…'
-                        : restoring || !online
-                          ? 'Checking your seat…'
-                          : entry === 'create'
-                            ? 'Create private table'
-                            : entry === 'solo'
-                              ? 'Deal me in with AI'
-                              : 'Join the table'}
-                      {!busy && <ArrowRight size={18} />}
-                    </Button>
-                  </form>
-                </Tabs>
-                <div className="entry-note">
-                  <LockKeyhole size={14} />
-                  <span>
-                    {entry === 'solo'
-                      ? 'No waiting for other players. Your seat reconnects on refresh.'
-                      : entry === 'create'
-                        ? 'Invite friends and add AI to any empty seat, up to 10 players.'
-                        : 'Use the code or link your host shared with you.'}
-                  </span>
-                </div>
-                <div className="entry-specs">
-                  <span>
-                    <Users size={16} /> 5–10 players
-                  </span>
-                  <span>45 min</span>
-                  <span>Ages 13+</span>
-                </div>
-                <div className="new-player">
-                  <BookOpen size={22} />
-                  <div>
-                    <b>First time at the table?</b>
-                    <button onClick={() => setRules(true)}>
-                      Read the field guide <ArrowRight size={14} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="seat-card paper">
-                  <div className="paper-top">
-                    <span>
-                      YOUR SEAT ·{' '}
-                      {String(
-                        game.players.findIndex((p) => p.id === game.me.id) + 1,
-                      ).padStart(2, '0')}
-                    </span>
-                    {game.hostId === game.me.id ? (
-                      <Crown size={18} />
-                    ) : (
-                      <LockKeyhole size={18} />
-                    )}
-                  </div>
-                  <div className="seat-identity">
-                    <img
-                      src={portraitUrl(
-                        me?.portrait ?? portrait,
-                        me?.alive === false,
-                      )}
-                      width="64"
-                      height="64"
-                      alt="Your chosen portrait"
-                    />
-                    <h2>{me?.name}</h2>
-                  </div>
-                  {game.phase === 'lobby' ? (
-                    <>
-                      <p>
-                        {game.players.length < 5
-                          ? `${5 - game.players.length} more ${game.players.length === 4 ? 'player' : 'players'} needed to begin.`
-                          : `${game.players.filter((p) => p.ready).length} of ${game.players.length} players ready.`}
-                      </p>
-                      <details className="change-portrait">
-                        <summary>Change your picture</summary>
-                        <PortraitPicker
-                          value={me?.portrait ?? portrait}
-                          onChange={(value) =>
-                            void act({ type: 'portrait', portrait: value })
-                          }
-                          disabled={busy}
-                        />
-                      </details>
-                      <Button
-                        className={`primary-button ${me?.ready ? 'ready-button' : ''}`}
-                        disabled={busy}
-                        onClick={() => act({ type: 'ready' })}
-                      >
-                        {me?.ready ? <CheckCheck /> : <Check />}
-                        {me?.ready ? 'Ready — click to unready' : 'I’m ready'}
-                      </Button>
-                      {game.hostId === game.me.id && (
-                        <Button
-                          className="start-button"
-                          disabled={
-                            busy ||
-                            game.players.length < 5 ||
-                            !game.players.every((p) => p.ready)
-                          }
-                          onClick={() => act({ type: 'start' })}
-                        >
-                          Deal the roles <ArrowRight />
-                        </Button>
-                      )}
-                      {game.hostId === game.me.id && (
-                        <details className="lobby-player-management">
-                          <summary>Manage players</summary>
-                          {game.players
-                            .filter((p) => p.id !== game.me.id)
-                            .map((p) => (
-                              <div key={p.id}>
-                                <img
-                                  src={portraitUrl(p.portrait)}
-                                  width="32"
-                                  height="32"
-                                  alt=""
-                                />
-                                <span>
-                                  {p.name}
-                                  {p.bot ? ' · AI' : ''}
-                                </span>
-                                <Button
-                                  variant="outline"
-                                  disabled={busy || !online}
-                                  onClick={() =>
-                                    choose({
-                                      action: { type: 'kick', target: p.id },
-                                      title: `Remove ${p.name}?`,
-                                      description:
-                                        'They will leave this waiting table.',
-                                    })
-                                  }
-                                  aria-label={`Remove ${p.name}`}
-                                >
-                                  Remove
-                                </Button>
-                              </div>
-                            ))}
-                          <Button
-                            variant="outline"
-                            className="add-bot-button"
-                            disabled={
-                              busy || !online || game.players.length >= 10
-                            }
-                            onClick={() => act({ type: 'add-bot' })}
-                          >
-                            <Bot />{' '}
-                            {game.players.length >= 10
-                              ? 'Table full · 10 players'
-                              : 'Add an AI'}
-                          </Button>
-                          {game.players.length < 10 && (
+                        {privateResult.party && investigatedPlayer ? (
+                          <>
+                            <p>Investigation complete.</p>
                             <Button
-                              variant="ghost"
-                              className="fill-bots-button"
-                              disabled={busy || !online}
-                              onClick={() => act({ type: 'fill-bots' })}
+                              variant="outline"
+                              className="investigation-review"
+                              onClick={() => setInvestigationOpen(true)}
                             >
-                              Fill all empty seats with AI · 10 players
+                              <Eye size={16} /> Review private result
                             </Button>
-                          )}
-                        </details>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <p>
-                        {!me?.alive && game.phase !== 'finished'
-                          ? 'You were executed. Watch silently until the game ends.'
-                          : 'Your allegiance is yours to keep.'}
-                      </p>
-                      <Button
-                        variant="outline"
-                        className="role-button"
-                        onClick={() => updateDossier({ type: 'open' })}
-                      >
-                        <Eye /> View secret dossier <LockKeyhole size={15} />
-                      </Button>
-                      <div className="seat-assignment">
-                        {game.president === game.me.id ? (
-                          <>
-                            <Crown /> President
-                          </>
-                        ) : game.chancellor === game.me.id ? (
-                          <>
-                            <Flag /> Chancellor
                           </>
                         ) : (
-                          <>
-                            <Users />{' '}
-                            {me?.alive ? 'Member of the chamber' : 'Eliminated'}
-                          </>
+                          <p>{privateResult.text}</p>
+                        )}
+                        {privateResult.policies && (
+                          <PolicyPeek policies={privateResult.policies} />
                         )}
                       </div>
-                      {game.phase === 'finished' && (
-                        <div className="next-match-controls">
-                          {game.hostId === game.me.id ? (
-                            <Button
-                              className="start-button"
-                              disabled={busy}
-                              onClick={() => act({ type: 'rematch' })}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Dismiss private result"
+                        onClick={() => setPrivateResult(null)}
+                      >
+                        <X size={16} />
+                      </Button>
+                    </section>
+                  )}
+                  <ActionPanel
+                    key={`${game.code}-${game.fairness?.id}-${game.me.id}-${game.round}-${game.phase}-${game.president}-${game.chancellor}-${game.power}`}
+                    game={game}
+                    busy={busy || !online}
+                    act={act}
+                  />
+                  {coaching && (
+                    <details className="coach-peek">
+                      <summary>
+                        <BookOpen size={14} />
+                        Coach · {coachTip(game).title}
+                      </summary>
+                      <CoachCard game={game} />
+                    </details>
+                  )}
+                </div>
+              )}
+              {feedback.cue &&
+                feedback.cue.kind !== 'election' &&
+                !(feedback.cue.kind === 'policy' && feedback.policy) && (
+                  <output
+                    className={`table-cue ${feedback.cue.party ?? ''} cue-${feedback.cue.kind}`}
+                    key={feedback.cue.id}
+                  >
+                    <span className="cue-rule" />
+                    <b>{feedback.cue.title}</b>
+                    <span>{feedback.cue.detail}</span>
+                  </output>
+                )}
+            </section>
+          )}
+
+          {(!game || game.phase === 'lobby') && (
+            <aside
+              className="side-panel"
+              aria-label={game ? 'Your seat' : 'Create or join a table'}
+            >
+              {!game ? (
+                <div className="entry-card paper">
+                  <div className="paper-top">
+                    <span>YOUR INVITATION</span>
+                    <LockKeyhole size={17} />
+                  </div>
+                  <h2>Take your seat</h2>
+                  <p>Invite your friends. Fill the empty seats with AI.</p>
+                  <Tabs
+                    value={entry}
+                    onValueChange={(v) =>
+                      setEntry(v as 'create' | 'join' | 'solo')
+                    }
+                  >
+                    <TabsList className="entry-tabs">
+                      <TabsTrigger value="create">Create</TabsTrigger>
+                      <TabsTrigger value="join">Join</TabsTrigger>
+                      <TabsTrigger value="solo">
+                        <Bot size={16} /> Play solo
+                      </TabsTrigger>
+                    </TabsList>
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void enter(entry);
+                      }}
+                    >
+                      <label className="field-label" htmlFor="display-name">
+                        YOUR DISPLAY NAME
+                      </label>
+                      <input
+                        id="display-name"
+                        autoComplete="off"
+                        minLength={2}
+                        maxLength={24}
+                        placeholder="What should we call you?"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        required
+                      />
+                      {entry === 'join' && (
+                        <>
+                          <label className="field-label" htmlFor="room-code">
+                            ROOM CODE
+                          </label>
+                          <input
+                            id="room-code"
+                            className="code-input"
+                            autoCapitalize="characters"
+                            autoComplete="off"
+                            spellCheck={false}
+                            minLength={8}
+                            maxLength={9}
+                            placeholder="ABCD EFGH"
+                            value={code}
+                            onChange={(e) =>
+                              setCode(e.target.value.toUpperCase())
+                            }
+                            required
+                          />
+                        </>
+                      )}
+                      {entry === 'solo' && (
+                        <div className="solo-options">
+                          <label
+                            className="field-label"
+                            id="solo-size-label"
+                            htmlFor="solo-size"
+                          >
+                            TABLE SIZE
+                          </label>
+                          <Select
+                            value={seats}
+                            onValueChange={(v) => {
+                              if (v) setSeats(v);
+                            }}
+                          >
+                            <SelectTrigger
+                              id="solo-size"
+                              aria-labelledby="solo-size-label"
+                              className="solo-size"
                             >
-                              Open lobby <ArrowRight />
-                            </Button>
-                          ) : (
-                            <p>
-                              The host can reopen the lobby for another match.
-                            </p>
-                          )}
+                              <SelectValue>
+                                {seats} players · you + {Number(seats) - 1} AI
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {[5, 6, 7, 8, 9, 10].map((n) => (
+                                <SelectItem key={n} value={String(n)}>
+                                  {n} players · you + {n - 1} AI
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           <p>
-                            Add friends or AI, change seats, then deal again.
+                            Original rules, secret roles, and a coach you can
+                            turn off. Five players is a good first table.
                           </p>
                         </div>
                       )}
-                    </>
-                  )}
-                  <div className="seat-utility-actions">
-                    <Button variant="outline" onClick={invite}>
-                      <Copy /> Invite friends
-                    </Button>
-                    <Button variant="outline" onClick={leave} disabled={busy}>
-                      <ArrowLeft /> Leave table
-                    </Button>
+                      <PortraitPicker
+                        value={portrait}
+                        onChange={setPortrait}
+                        disabled={busy || restoring || !online}
+                      />
+                      <Button
+                        className="primary-button"
+                        type="submit"
+                        disabled={busy || restoring || !online}
+                      >
+                        {busy
+                          ? 'Taking your seat…'
+                          : restoring || !online
+                            ? 'Checking your seat…'
+                            : entry === 'create'
+                              ? 'Create private table'
+                              : entry === 'solo'
+                                ? 'Deal me in with AI'
+                                : 'Join the table'}
+                        {!busy && <ArrowRight size={18} />}
+                      </Button>
+                    </form>
+                  </Tabs>
+                  <div className="entry-note">
+                    <LockKeyhole size={14} />
+                    <span>
+                      {entry === 'solo'
+                        ? 'No waiting for other players. Your seat reconnects on refresh.'
+                        : entry === 'create'
+                          ? 'Invite friends and add AI to any empty seat, up to 10 players.'
+                          : 'Use the code or link your host shared with you.'}
+                    </span>
+                  </div>
+                  <div className="entry-specs">
+                    <span>
+                      <Users size={16} /> 5–10 players
+                    </span>
+                    <span>45 min</span>
+                    <span>Ages 13+</span>
+                  </div>
+                  <div className="new-player">
+                    <BookOpen size={22} />
+                    <div>
+                      <b>First time at the table?</b>
+                      <button onClick={() => setRules(true)}>
+                        Read the field guide <ArrowRight size={14} />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </>
-            )}
-          </aside>
-        )}
+              ) : (
+                <>
+                  <div className="seat-card paper">
+                    <div className="paper-top">
+                      <span>
+                        YOUR SEAT ·{' '}
+                        {String(
+                          game.players.findIndex((p) => p.id === game.me.id) +
+                            1,
+                        ).padStart(2, '0')}
+                      </span>
+                      {game.hostId === game.me.id ? (
+                        <Crown size={18} />
+                      ) : (
+                        <LockKeyhole size={18} />
+                      )}
+                    </div>
+                    <div className="seat-identity">
+                      <img
+                        src={portraitUrl(
+                          me?.portrait ?? portrait,
+                          me?.alive === false,
+                        )}
+                        width="64"
+                        height="64"
+                        alt="Your chosen portrait"
+                      />
+                      <h2>{me?.name}</h2>
+                    </div>
+                    {game.phase === 'lobby' ? (
+                      <>
+                        <p>
+                          {game.players.length < 5
+                            ? `${5 - game.players.length} more ${game.players.length === 4 ? 'player' : 'players'} needed to begin.`
+                            : `${game.players.filter((p) => p.ready).length} of ${game.players.length} players ready.`}
+                        </p>
+                        <details className="change-portrait">
+                          <summary>Change your picture</summary>
+                          <PortraitPicker
+                            value={me?.portrait ?? portrait}
+                            onChange={(value) =>
+                              void act({ type: 'portrait', portrait: value })
+                            }
+                            disabled={busy}
+                          />
+                        </details>
+                        <Button
+                          className={`primary-button ${me?.ready ? 'ready-button' : ''}`}
+                          disabled={busy}
+                          onClick={() => act({ type: 'ready' })}
+                        >
+                          {me?.ready ? <CheckCheck /> : <Check />}
+                          {me?.ready ? 'Ready — click to unready' : 'I’m ready'}
+                        </Button>
+                        {game.hostId === game.me.id && (
+                          <Button
+                            className="start-button"
+                            disabled={
+                              busy ||
+                              game.players.length < 5 ||
+                              !game.players.every((p) => p.ready)
+                            }
+                            onClick={() => act({ type: 'start' })}
+                          >
+                            Deal the roles <ArrowRight />
+                          </Button>
+                        )}
+                        {game.hostId === game.me.id && (
+                          <details className="lobby-player-management">
+                            <summary>Manage players</summary>
+                            {game.players
+                              .filter((p) => p.id !== game.me.id)
+                              .map((p) => (
+                                <div key={p.id}>
+                                  <img
+                                    src={portraitUrl(p.portrait)}
+                                    width="32"
+                                    height="32"
+                                    alt=""
+                                  />
+                                  <span>
+                                    {p.name}
+                                    {p.bot ? ' · AI' : ''}
+                                  </span>
+                                  <Button
+                                    variant="outline"
+                                    disabled={busy || !online}
+                                    onClick={() =>
+                                      choose({
+                                        action: { type: 'kick', target: p.id },
+                                        title: `Remove ${p.name}?`,
+                                        description:
+                                          'They will leave this waiting table.',
+                                      })
+                                    }
+                                    aria-label={`Remove ${p.name}`}
+                                  >
+                                    Remove
+                                  </Button>
+                                </div>
+                              ))}
+                            <Button
+                              variant="outline"
+                              className="add-bot-button"
+                              disabled={
+                                busy || !online || game.players.length >= 10
+                              }
+                              onClick={() => act({ type: 'add-bot' })}
+                            >
+                              <Bot />{' '}
+                              {game.players.length >= 10
+                                ? 'Table full · 10 players'
+                                : 'Add an AI'}
+                            </Button>
+                            {game.players.length < 10 && (
+                              <Button
+                                variant="ghost"
+                                className="fill-bots-button"
+                                disabled={busy || !online}
+                                onClick={() => act({ type: 'fill-bots' })}
+                              >
+                                Fill all empty seats with AI · 10 players
+                              </Button>
+                            )}
+                          </details>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <p>
+                          {!me?.alive && game.phase !== 'finished'
+                            ? 'You were executed. Watch silently until the game ends.'
+                            : 'Your allegiance is yours to keep.'}
+                        </p>
+                        <Button
+                          variant="outline"
+                          className="role-button"
+                          onClick={() => updateDossier({ type: 'open' })}
+                        >
+                          <Eye /> View secret dossier <LockKeyhole size={15} />
+                        </Button>
+                        <div className="seat-assignment">
+                          {game.president === game.me.id ? (
+                            <>
+                              <Crown /> President
+                            </>
+                          ) : game.chancellor === game.me.id ? (
+                            <>
+                              <Flag /> Chancellor
+                            </>
+                          ) : (
+                            <>
+                              <Users />{' '}
+                              {me?.alive
+                                ? 'Member of the chamber'
+                                : 'Eliminated'}
+                            </>
+                          )}
+                        </div>
+                        {game.phase === 'finished' && (
+                          <div className="next-match-controls">
+                            {game.hostId === game.me.id ? (
+                              <Button
+                                className="start-button"
+                                disabled={busy}
+                                onClick={() => act({ type: 'rematch' })}
+                              >
+                                Open lobby <ArrowRight />
+                              </Button>
+                            ) : (
+                              <p>
+                                The host can reopen the lobby for another match.
+                              </p>
+                            )}
+                            <p>
+                              Add friends or AI, change seats, then deal again.
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    <div className="seat-utility-actions">
+                      <Button variant="outline" onClick={invite}>
+                        <Copy /> Invite friends
+                      </Button>
+                      <Button variant="outline" onClick={leave} disabled={busy}>
+                        <ArrowLeft /> Leave table
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </aside>
+          )}
+
+          {game && (
+            <aside
+              id="table-conversation"
+              ref={conversationRef}
+              tabIndex={-1}
+              className="table-conversation paper"
+              aria-label="Table conversation"
+            >
+              <div className="conversation-heading">
+                <h2>Table conversation</h2>
+                <MessageCircle size={17} aria-hidden="true" />
+              </div>
+              <Conversation
+                game={game}
+                act={act}
+                busy={busy || !online}
+                message={chatDraft}
+                setMessage={setChatDraft}
+                tab={chatTab}
+                setTab={changeChatTab}
+                unread={unreadChat}
+              />
+            </aside>
+          )}
+        </div>
 
         {game && (
           <section className="players-panel paper" aria-label="Players">
@@ -1297,30 +1310,16 @@ export default function GameTable() {
             </div>
           </section>
         )}
-        {game && desktopChat && (
-          <aside className="desktop-chat paper" aria-label="Table conversation">
-            <div className="desktop-chat-heading">
-              <h2>Table conversation</h2>
-              <MessageCircle size={17} aria-hidden="true" />
-            </div>
-            <Conversation
-              game={game}
-              act={act}
-              busy={busy || !online}
-              message={chatDraft}
-              setMessage={setChatDraft}
-              tab={chatTab}
-              setTab={changeChatTab}
-              unread={unreadChat}
-            />
-          </aside>
-        )}
       </main>
 
-      {game && !desktopChat && (
-        <Popover open={chatOpen} onOpenChange={changeChatOpen} modal={false}>
-          <PopoverTrigger render={<Button className="chat-launcher" />}>
-            <MessageCircle /> Chat{' '}
+      {game && (
+        <div className="game-dock">
+          <Button
+            variant="ghost"
+            className="dock-button conversation-link"
+            onClick={() => conversationRef.current?.focus()}
+          >
+            <MessageCircle size={16} /> Chat
             {unreadChat > 0 && (
               <span
                 className="chat-unread"
@@ -1329,40 +1328,7 @@ export default function GameTable() {
                 {unreadChat > 99 ? '99+' : unreadChat}
               </span>
             )}
-          </PopoverTrigger>
-          <PopoverContent
-            className="chat-popover paper"
-            side="top"
-            align="start"
-            sideOffset={10}
-          >
-            <div className="chat-popover-heading">
-              <PopoverTitle>Table conversation</PopoverTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Close chat"
-                onClick={() => changeChatOpen(false)}
-              >
-                <X />
-              </Button>
-            </div>
-            <Conversation
-              game={game}
-              act={act}
-              busy={busy || !online}
-              message={chatDraft}
-              setMessage={setChatDraft}
-              tab={chatTab}
-              setTab={changeChatTab}
-              unread={unreadChat}
-            />
-          </PopoverContent>
-        </Popover>
-      )}
-
-      {game && (
-        <div className="game-dock">
+          </Button>
           <span className="dock-status">
             {game.phase === 'lobby'
               ? 'WAITING FOR THE DEAL'
@@ -1519,7 +1485,9 @@ export default function GameTable() {
                     className="text-button"
                     onClick={() => {
                       setSettingsOpen(false);
-                      changeChatOpen(true);
+                      requestAnimationFrame(() =>
+                        conversationRef.current?.focus(),
+                      );
                     }}
                   >
                     Chat <ArrowRight size={14} />
