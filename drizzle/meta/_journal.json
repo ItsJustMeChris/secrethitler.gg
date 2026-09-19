@@ -15,6 +15,13 @@
       "when": 1789541139427,
       "tag": "0001_websocket_rooms",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789783706470,
+      "tag": "0002_seat_transfer",
+      "breakpoints": true
     }
   ]
 }

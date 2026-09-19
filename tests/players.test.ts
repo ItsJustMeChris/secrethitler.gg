@@ -44,6 +44,10 @@ void test('only catalog portraits are accepted, with a legacy default and safe l
       portraitUrl(item.id),
       /^\/assets\/portraits\/cartoon-avatar-\d{2}\.png$/,
     );
+    assert.equal(
+      portraitUrl(item.id, true),
+      portraitUrl(item.id).replace('.png', '-dead.png'),
+    );
   }
   for (const value of [
     0,
@@ -59,6 +63,7 @@ void test('only catalog portraits are accepted, with a legacy default and safe l
   ]) {
     assert.throws(() => validPortrait(value));
     assert.equal(portraitUrl(value as number), portraitUrl(1));
+    assert.equal(portraitUrl(value as number, true), portraitUrl(1, true));
   }
   assert.throws(() => newGame('ABCDEFGH', 'host', 'Host', 31));
   assert.equal(newGame('ABCDEFGH', 'host', 'Host', 30).players[0].portrait, 30);

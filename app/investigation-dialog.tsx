@@ -11,7 +11,8 @@ import {
 } from '@/components/ui/dialog';
 import { GameDialog as Dialog } from './game-dialog';
 import type { Policy } from '@/lib/game';
-import { portraitUrl } from '@/lib/portraits';
+import { PlayerCard } from './player-card';
+import { MembershipCard } from './game-board';
 
 export function InvestigationDialog({
   open,
@@ -21,7 +22,7 @@ export function InvestigationDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  player: { name: string; portrait: number };
+  player: { name: string; portrait: number; alive?: boolean };
   party: Policy;
 }) {
   const [visible, setVisible] = useState(
@@ -55,26 +56,16 @@ export function InvestigationDialog({
           </DialogDescription>
         </DialogHeader>
         {revealed && (
-          <div className="dossier-content investigation-content">
-            <img
-              className="role-image investigation-portrait"
-              src={portraitUrl(player.portrait)}
-              alt=""
-              width="256"
-              height="256"
-            />
-            <div>
-              <h3>{player.name}</h3>
-              <div className={`investigation-membership ${party}`}>
-                <span>Party membership</span>
-                <strong>{party === 'liberal' ? 'Liberal' : 'Fascist'}</strong>
-              </div>
-              <p>
-                {party === 'fascist'
-                  ? 'This reveals Fascist party membership. It does not tell you whether this player is Hitler.'
-                  : 'This player belongs to the Liberal party.'}
-              </p>
+          <div className="investigation-content">
+            <div className="investigation-cards">
+              <PlayerCard player={player} status="Investigated" />
+              <MembershipCard party={party} />
             </div>
+            <p>
+              {party === 'fascist'
+                ? 'This reveals Fascist party membership. It does not tell you whether this player is Hitler.'
+                : 'This player belongs to the Liberal party.'}
+            </p>
           </div>
         )}
         {!revealed && (

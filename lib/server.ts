@@ -14,6 +14,11 @@ import type { Action, Game } from './game';
 import { authorizeTick, tickBots } from './bots';
 import { createFairness } from './fairness';
 import { keepRoomOpen, releaseRoom, ROOM_GRACE_MS } from './room-presence';
+import {
+  claimTransfer,
+  issueTransfer,
+  revokeTransfer,
+} from './session-transfer';
 
 const WEEK = 7 * 86400_000;
 const COOKIE = 'sh_session';
@@ -66,13 +71,21 @@ async function rate(key: string, max: number, windowSeconds = 60) {
     throw new HttpError('Too many requests. Wait a moment and try again.', 429);
 }
 type Identity = { id: string; hash: string; cookie?: string };
-async function identity(request: Request, create = false): Promise<Identity> {
-  const token = request.headers
+function sessionToken(request: Request) {
+  return request.headers
     .get('cookie')
     ?.split(';')
     .map((p) => p.trim())
     .find((p) => p.startsWith(`${COOKIE}=`))
     ?.slice(COOKIE.length + 1);
+}
+function randomSecret() {
+  return [...crypto.getRandomValues(new Uint8Array(32))]
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+async function identity(request: Request, create = false): Promise<Identity> {
+  const token = sessionToken(request);
   const now = Date.now();
   if (token && /^[a-f0-9]{64}$/.test(token)) {
     const tokenHash = await hash(token);
@@ -102,9 +115,7 @@ async function identity(request: Request, create = false): Promise<Identity> {
     );
   const ip = request.headers.get('cf-connecting-ip') ?? 'local';
   await rate(`new-session:${await hash(ip)}`, 20);
-  const secret = [...crypto.getRandomValues(new Uint8Array(32))]
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+  const secret = randomSecret();
   const tokenHash = await hash(secret);
   const id = crypto.randomUUID();
   await database()
@@ -411,6 +422,91 @@ export async function handle(request: Request) {
   }
 }
 
+// Cookie rotation requires an HTTP response; transfer credentials never go
+// through the game socket or personalized room snapshots.
+export async function handleTransfer(request: Request) {
+  try {
+    const input = await body(request);
+    if (input.operation === 'claim') {
+      const ip = request.headers.get('cf-connecting-ip') ?? 'local';
+      await rate(`transfer-claim:${await hash(ip)}`, 20);
+      const code = codeOf(input.code);
+      if (
+        typeof input.token !== 'string' ||
+        !/^[a-f0-9]{64}$/.test(input.token)
+      )
+        throw new HttpError(
+          'This transfer link is invalid or has expired.',
+          400,
+        );
+      const transferHash = await hash(input.token);
+      const currentToken = sessionToken(request);
+      if (currentToken && /^[a-f0-9]{64}$/.test(currentToken)) {
+        const own = await database()
+          .prepare(
+            'SELECT id FROM sessions WHERE hash=? AND transfer_hash=? AND transfer_expires>?',
+          )
+          .bind(await hash(currentToken), transferHash, Date.now())
+          .first();
+        if (own)
+          throw new HttpError(
+            'You are already using this seat. Open the link on your other device.',
+            409,
+          );
+      }
+      const secret = randomSecret();
+      const claimed = await claimTransfer(
+        database(),
+        transferHash,
+        code,
+        await hash(secret),
+      );
+      if (!claimed)
+        throw new HttpError(
+          'This transfer link has expired, was already used, or its seat is no longer available. Create a new link on the original device.',
+          410,
+        );
+      return json({ code }, 200, cookieValue(secret, request));
+    }
+    if (input.operation !== 'create' && input.operation !== 'revoke')
+      throw new HttpError('Unknown transfer operation.', 400);
+    const session = await identity(request);
+    await rate(`transfer:${session.id}`, 15);
+    if (input.operation === 'revoke') {
+      await revokeTransfer(database(), session.hash);
+      return json({ revoked: true });
+    }
+    const code = codeOf(input.code);
+    const { game } = await readRoom(code);
+    await projected(game, session.id);
+    const token = randomSecret();
+    const grant = await issueTransfer(
+      database(),
+      session.hash,
+      code,
+      await hash(token),
+    );
+    if (!grant)
+      throw new HttpError(
+        'Your seat moved or expired. Reconnect to continue.',
+        401,
+      );
+    return json({ token, expires: grant.expires });
+  } catch (error) {
+    if (error instanceof HttpError)
+      return json({ error: error.message }, error.status);
+    if (error instanceof RuleError) return json({ error: error.message }, 403);
+    console.error(
+      'Seat transfer failed:',
+      error instanceof Error ? error.name : 'UnknownError',
+    );
+    return json(
+      { error: 'The transfer could not be confirmed. Please try again.' },
+      503,
+    );
+  }
+}
+
 // Sites supplies D1, not a room-coordinator binding. Each socket observes the
 // durable room revision so players on different Worker isolates see the same
 // commits. This is server-side D1 synchronization (750 ms), not browser polling
@@ -529,7 +625,7 @@ export async function openTableSocket(
       .first<{ id: string }>();
     if (!valid || valid.id !== session.id)
       throw new HttpError(
-        'Your seat session has expired. Join the table again.',
+        'Your seat moved to another device or its session expired.',
         401,
       );
   }
@@ -548,11 +644,11 @@ export async function openTableSocket(
         return;
       }
       const presenceDue = now - lastPresence >= 20_000;
+      // A transferred device must stop receiving private snapshots as soon
+      // as its session is rotated, even when its presence lease is still live.
+      await validateIdentity();
+      if (closed) return;
       if (presenceDue) {
-        // Revalidate the identity created during this handshake, too. The
-        // original request does not contain its newly issued cookie yet.
-        await validateIdentity();
-        if (closed) return;
         if (
           code &&
           !(await keepRoomOpen(database(), code, connectionId, session.id))

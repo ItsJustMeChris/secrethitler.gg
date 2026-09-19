@@ -22,6 +22,16 @@ Players can leave at any phase. Lobby and finished seats are freed; live seats r
 
 President seats use gold and crown markers; chancellor seats use purple and flag markers. The voting panel repeats these colors with explicit office/name labels. “You” is a neutral identity label. Every new deal or restored active match opens the seated player's secret dossier, including multiplayer and rematches. The opening reveal waits for dismissal; switching away hides it and returning brings it back until acknowledged. Later manual peeks still hide on blur or after 30 seconds.
 
+Eliminated players switch to matching cartoony dead portraits with X eyes and a goofy expression. All 30 characters have a transparent variant. Your own execution opens a “You were killed!” popup with a Keep watching button and a reminder to stay silent; it also appears when reconnecting after a missed execution. It stays dismissed through subsequent updates and resets on a rematch. The notice contains no secret role or party information, and an execution that ends the match still shows it. See [portrait generation](docs/DEAD-PORTRAITS.md).
+
+Player cards share the secret-role card proportions throughout the assembly, player selections, proposed governments, and investigations. The assembly uses compact rows with horizontal scrolling on phones. Policy peeks show the actual cards in deck order; investigation results use official party-membership cards. See [player and decision cards](docs/PLAYER-CARDS.md).
+
+## Move your seat to another device
+
+Open **Your seat → Create private link**, copy the link, and open it on your other device. Select **Use this seat on this device** to continue with the same name, portrait, role, and host status. Your previous device signs out. Keep the original table open until the transfer finishes, especially when you are the only human connected.
+
+The link is private: anyone holding it can take your seat. It works once, expires after 10 minutes, and can be canceled from Your seat. Creating another link invalidates the previous one. Opening the link alone does not transfer the seat. The secret lives in the URL fragment, is removed from browser history on opening, and is stored only as a hash on the server. Claiming it atomically replaces the session cookie; closed rooms and removed/departed seats cannot be restored through a transfer.
+
 ## Verifiable shuffle receipts
 
 Each new lobby publishes a SHA-256 commitment to a fresh 256-bit server seed. The seed stays private through the match; AES-256-CTR generates a deterministic random stream and rejection sampling feeds Fisher–Yates for roles, policies, the first president, and reshuffles. At game end, the browser can replay the recorded shuffles against its saved commitment and download a JSON receipt. The previous completed receipt survives a rematch, including for clients that missed the brief finished phase.
@@ -55,6 +65,7 @@ npm test                 # Rules, secrecy boundaries, 600 rules + 600 AI games
 npm run test:rules       # Independent rulebook oracles and exhaustive bounded cases
 npm run test:rules:mutations # Check detection of 30 deliberately altered rule variants
 npm run test:websocket   # Socket-only match, room entry, controls, recovery and origin protection
+npm run test:transfer    # Two-device seat transfer, replay/race protection and old-device invalidation
 npm run test:rooms-api   # Room closure after last disconnect (takes about 65 seconds)
 npm run test:api         # Real local HTTP/D1 multiplayer tests; dev server must be running
 npm run test:bots-api    # Mixed human/AI game, solo, capacity, pacing and concurrent steps
@@ -83,7 +94,7 @@ The [rules audit](docs/RULES-AUDIT.md) maps the official rulebook and printed bo
 
 ### Limits
 
-Anti-cheat protects server authority and secret distribution. It cannot stop screenshot sharing, off-platform collusion, a person using multiple browsers, or an operator with database access. Anonymous seats are not verified human identities. Losing the cookie loses that seat. While anyone remains connected, a disconnected player must return to continue their turn; the host cannot override a vote, replace a live-game player, or inspect their role. There is no built-in voice chat or public matchmaking.
+Anti-cheat protects server authority and secret distribution. It cannot stop screenshot sharing, off-platform collusion, a person using multiple browsers, or an operator with database access. Anonymous seats are not verified human identities. Losing the cookie without an unused transfer link loses that seat. While anyone remains connected, a disconnected player must return to continue their turn; the host cannot override a vote, replace a live-game player, or inspect their role. There is no built-in voice chat or public matchmaking.
 
 ## Deployment
 

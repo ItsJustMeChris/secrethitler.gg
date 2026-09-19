@@ -67,6 +67,6 @@ export function isPortrait(value: unknown): value is number {
     value <= PORTRAITS.length
   );
 }
-export function portraitUrl(id: number) {
-  return `/assets/portraits/cartoon-avatar-${String(isPortrait(id) ? id : 1).padStart(2, '0')}.png`;
+export function portraitUrl(id: number, eliminated = false) {
+  return `/assets/portraits/cartoon-avatar-${String(isPortrait(id) ? id : 1).padStart(2, '0')}${eliminated ? '-dead' : ''}.png`;
 }

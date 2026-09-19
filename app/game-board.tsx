@@ -110,3 +110,31 @@ export function PolicyCard({ kind, index }: { kind: Policy; index: number }) {
     />
   );
 }
+
+export function PolicyPeek({ policies }: { policies: Policy[] }) {
+  return (
+    <ol
+      className="peek-policies"
+      aria-label="Inspected policies, top of deck first"
+    >
+      {policies.map((kind, index) => (
+        <li key={index}>
+          <PolicyCard kind={kind} index={index} />
+          <span>{index === 0 ? '1 · Top' : `${index + 1} · Next`}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+export function MembershipCard({ party }: { party: Policy }) {
+  return (
+    <img
+      className="membership-card"
+      src={asset(`membership-${party}`)}
+      alt={`${party === 'liberal' ? 'Liberal' : 'Fascist'} party membership`}
+      width="500"
+      height="713"
+    />
+  );
+}
