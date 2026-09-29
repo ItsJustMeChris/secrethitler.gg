@@ -117,11 +117,13 @@ try {
 
   const solo = new Player();
   players.push(solo);
-  const first = await solo.request({
+  let first = await solo.request({
     operation: 'solo',
     name: 'HTTP solo',
     seats: 10,
   });
+  if (first.president === first.me.id)
+    first = await solo.move({ type: 'nominate', target: first.eligible[0] });
   await solo.sync();
   await delay(5500);
   const next = await solo.sync();
