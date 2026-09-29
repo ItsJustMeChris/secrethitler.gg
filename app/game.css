@@ -612,6 +612,7 @@ input::placeholder {
   min-height: calc(100dvh - 184px);
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(280px, 1fr) auto;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -640,6 +641,7 @@ input::placeholder {
 }
 .board-surface {
   grid-row: 2;
+  min-width: 0;
   min-height: 0;
   display: grid;
   grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto;
@@ -753,6 +755,7 @@ input::placeholder {
 }
 .turn-action {
   grid-row: 3;
+  min-width: 0;
   min-height: 0;
   overflow: visible;
   border-top: 1px solid var(--line);
@@ -2860,18 +2863,17 @@ input::placeholder {
 }
 .floor-player-options {
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: var(--player-card-width);
-  grid-template-rows: auto;
-  justify-content: start;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, var(--player-card-width)), var(--player-card-width))
+  );
+  justify-content: center;
   gap: 10px;
   margin: 0;
   padding: 4px 3px 8px;
   min-width: 0;
   border: 0;
-  overflow-x: auto;
-  overscroll-behavior-inline: contain;
-  scrollbar-width: thin;
+  max-width: 100%;
 }
 .floor-player-option {
   display: flex;
@@ -2912,7 +2914,7 @@ input::placeholder {
 }
 .government-candidates {
   display: grid;
-  grid-template-columns: repeat(2, var(--player-card-width));
+  grid-template-columns: repeat(2, minmax(0, var(--player-card-width)));
   justify-content: center;
   gap: 14px;
   margin: 8px 0;

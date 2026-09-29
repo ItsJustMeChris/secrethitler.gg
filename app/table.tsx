@@ -16,6 +16,7 @@ import {
 } from '@/lib/game-presentation';
 import { closedDossier, dossierReducer } from '@/lib/dossier';
 import { connectTable, type TableView } from '@/lib/table-connection';
+import { browserStorage } from '@/lib/browser-storage';
 import { GameDialog as Dialog } from './game-dialog';
 import {
   Settings2,
@@ -236,7 +237,7 @@ export default function GameTable() {
     }
     gameRef.current = null;
     setGame(null);
-    localStorage.removeItem('sh-room');
+    browserStorage.removeItem('sh-room');
     history.replaceState(null, '', '/');
     updateDossier({ type: 'reset' });
     setReadAloud(false);
@@ -252,16 +253,16 @@ export default function GameTable() {
   useEffect(() => {
     // Browser storage is read after hydration; it is unavailable during server rendering.
     // oxlint-disable-next-line react/react-compiler
-    setName(localStorage.getItem('sh-name') ?? '');
-    const savedPortrait = Number(localStorage.getItem('sh-portrait'));
+    setName(browserStorage.getItem('sh-name') ?? '');
+    const savedPortrait = Number(browserStorage.getItem('sh-portrait'));
     if (isPortrait(savedPortrait)) setPortrait(savedPortrait);
-    setCoaching(localStorage.getItem('sh-coach') === 'true');
+    setCoaching(browserStorage.getItem('sh-coach') === 'true');
     setVoiceAvailable('speechSynthesis' in window);
     setCanFullscreen(!!document.fullscreenEnabled);
     const invite = new URLSearchParams(location.search)
       .get('room')
       ?.toUpperCase();
-    const saved = invite ?? localStorage.getItem('sh-room');
+    const saved = invite ?? browserStorage.getItem('sh-room');
     if (invite) {
       setCode(invite);
       setEntry('join');
@@ -270,7 +271,7 @@ export default function GameTable() {
       code: saved ?? undefined,
       receive: (next) => {
         accept(next);
-        localStorage.setItem('sh-room', next.code);
+        browserStorage.setItem('sh-room', next.code);
       },
       status: (connected) => {
         setOnline(connected);
@@ -287,7 +288,7 @@ export default function GameTable() {
         setPrivateResult(null);
         setInvestigationOpen(false);
         setChoice(null);
-        localStorage.removeItem('sh-room');
+        browserStorage.removeItem('sh-room');
         if (status === 404) history.replaceState(null, '', '/');
       },
     });
@@ -425,18 +426,18 @@ export default function GameTable() {
       });
       if ('left' in next) throw new Error('Could not enter the table.');
       accept(next);
-      localStorage.setItem('sh-name', name.trim());
+      browserStorage.setItem('sh-name', name.trim());
       const actualPortrait = next.players.find(
         (p) => p.id === next.me.id,
       )!.portrait;
       setPortrait(actualPortrait);
-      localStorage.setItem('sh-portrait', String(actualPortrait));
-      localStorage.setItem('sh-room', next.code);
+      browserStorage.setItem('sh-portrait', String(actualPortrait));
+      browserStorage.setItem('sh-room', next.code);
       history.replaceState(null, '', `?room=${next.code}`);
       setSeatOpen(false);
       if (operation === 'solo') {
         setCoaching(true);
-        localStorage.setItem('sh-coach', 'true');
+        browserStorage.setItem('sh-coach', 'true');
       }
     } catch (e) {
       setError((e as Error).message);
@@ -479,7 +480,7 @@ export default function GameTable() {
           setSeatOpen(false);
         if (action.type === 'portrait') {
           setPortrait(action.portrait);
-          localStorage.setItem('sh-portrait', String(action.portrait));
+          browserStorage.setItem('sh-portrait', String(action.portrait));
         }
       }
       setChoice(null);
@@ -1392,7 +1393,7 @@ export default function GameTable() {
                     checked={coaching}
                     onCheckedChange={(value) => {
                       setCoaching(value);
-                      localStorage.setItem('sh-coach', String(value));
+                      browserStorage.setItem('sh-coach', String(value));
                     }}
                   />
                 </label>

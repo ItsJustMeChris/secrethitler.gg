@@ -2,7 +2,7 @@
 
 The shared `PlayerCard` uses the original secret-role card proportions (500 × 713), a neutral paper frame, the selected living/dead portrait, a nameplate, and compact status labels. Assembly cards, nomination/executive-power targets, proposed governments, and investigation results reuse this face. The assembly uses three columns on desktop, two on intermediate screens, and two horizontally scrollable rows of five cards on phones when all ten seats are occupied. Rows no longer stretch to fill the panel.
 
-Selection remains a two-step choice and confirmation, with the existing eligibility and investigation restrictions. Cards receive only the seated player's existing server projection. Only `playerKnowledge` supplies known role/party labels; artwork never determines or reveals a role.
+Selection remains a two-step choice and confirmation, with the existing eligibility and investigation restrictions. Nomination and executive-action cards wrap into centered rows that fit the available width. The chamber has an explicit shrinkable grid column, so a full candidate list cannot widen either policy board. Proposed-government cards also shrink within narrow screens. Cards receive only the seated player's existing server projection. Only `playerKnowledge` supplies known role/party labels; artwork never determines or reveals a role.
 
 Policy peeks display the existing policy art in its original order, labeled top/second/third, both on the floor and in the private dossier. An investigation displays a player card next to a party-membership card, never a secret-role card. Existing window-focus privacy and server permissions remain in place.
 

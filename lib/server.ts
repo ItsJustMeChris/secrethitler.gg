@@ -398,8 +398,64 @@ export async function handle(request: Request) {
     const isEntry =
       input.operation === 'create' ||
       input.operation === 'join' ||
-      input.operation === 'solo';
+      input.operation === 'solo' ||
+      (input.operation === 'sync' && !input.code);
     session = await identity(request, isEntry);
+    if (input.operation === 'sync' || input.operation === 'disconnect') {
+      if (
+        typeof input.connectionId !== 'string' ||
+        !/^[a-f0-9-]{36}$/.test(input.connectionId)
+      )
+        throw new HttpError('A valid connection ID is required.', 400);
+      await rate(`poll:${session.id}:${input.connectionId}`, 120);
+      // Namespace browser leases by the authenticated session. A different tab
+      // or a transferred device cannot release another connection's lease.
+      const connectionId = `http:${session.hash}:${input.connectionId}`;
+      if (input.operation === 'disconnect') {
+        const code = codeOf(input.code);
+        const lease = await database()
+          .prepare(
+            'SELECT id FROM room_connections WHERE id=? AND code=? AND player_id=?',
+          )
+          .bind(connectionId, code, session.id)
+          .first();
+        if (lease) await releaseRoom(database(), code, connectionId);
+        return json({ released: true }, 200, session.cookie);
+      }
+      if (!input.code) return json({ ready: true }, 200, session.cookie);
+      const code = codeOf(input.code);
+      let { game } = await readRoom(code);
+      // Check active human membership before extending the room or advancing AI.
+      if (game.players.find((p) => p.id === session!.id)?.departed)
+        throw new HttpError(
+          'Your seat is reserved. Join this room again to return.',
+          401,
+        );
+      viewFor(game, session.id);
+      if (
+        input.presence === true &&
+        !(await keepRoomOpen(database(), code, connectionId, session.id))
+      )
+        throw new HttpError(
+          'This table has closed. Create a new table to play again.',
+          404,
+        );
+      if (
+        game.practice &&
+        !game.practice.paused &&
+        !['lobby', 'finished'].includes(game.phase) &&
+        Date.now() >= game.practice.nextAt
+      ) {
+        const playerId = session.id;
+        game = await updateRoom(
+          code,
+          (current) =>
+            authorizeTick(current, playerId, false, undefined) &&
+            tickBots(current, Date.now()),
+        );
+      }
+      return json(await projected(game, session.id), 200, session.cookie);
+    }
     return await performOperation(input, session, request);
   } catch (error) {
     if (error instanceof RuleError)

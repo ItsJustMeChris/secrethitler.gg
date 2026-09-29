@@ -1,4 +1,5 @@
 import type { GameView } from './game.ts';
+import { connectPolling } from './table-polling.ts';
 
 export type TableView = Omit<GameView, 'players'> & {
   players: (GameView['players'][number] & { connected: boolean })[];
@@ -14,7 +15,7 @@ export type TableMessage =
 
 export type TableResult = TableView | { left: true };
 
-type Options = {
+export type ConnectionOptions = {
   code?: string;
   receive: (view: TableView) => void;
   status: (connected: boolean) => void;
@@ -23,7 +24,14 @@ type Options = {
 
 // No moves are replayed on reconnect. Every new connection gets a full,
 // authenticated snapshot, including moves whose acknowledgement was lost.
-export function connectTable({ code, receive, status, expired }: Options) {
+export function connectTable({
+  code,
+  receive,
+  status,
+  expired,
+}: ConnectionOptions) {
+  let fallback: ReturnType<typeof connectPolling> | undefined;
+  let failures = 0;
   let socket: WebSocket | undefined;
   let retry: ReturnType<typeof setTimeout> | undefined;
   let watchdog: ReturnType<typeof setInterval> | undefined;
@@ -65,11 +73,23 @@ export function connectTable({ code, receive, status, expired }: Options) {
     }
   }
 
-  function reconnect(immediate = false) {
+  function usePolling() {
+    if (stopped || fallback) return;
+    cleanup();
+    fallback = connectPolling({ code, receive, status, expired });
+  }
+
+  function reconnect(immediate = false, failed = true) {
     if (retry) clearTimeout(retry);
     detach();
     status(false);
     if (stopped || document.hidden || navigator.onLine === false) return;
+    // A successful upgrade alone does not prove this network can sustain a
+    // socket. Stay on HTTP for this visit once failures recur; never replay moves.
+    if (failed && ++failures >= 2) {
+      usePolling();
+      return;
+    }
     const delay = immediate
       ? 0
       : Math.min(10_000, 500 * 2 ** Math.min(attempts++, 5));
@@ -137,7 +157,7 @@ export function connectTable({ code, receive, status, expired }: Options) {
             detach();
             status(false);
             expired(message.error, message.status);
-            reconnect(true);
+            reconnect(true, false);
             return;
           }
           reconnect();
@@ -153,8 +173,16 @@ export function connectTable({ code, receive, status, expired }: Options) {
     current.onerror = () => {
       if (socket === current) reconnect();
     };
-    current.onclose = () => {
-      if (socket === current) reconnect();
+    current.onclose = (event) => {
+      if (socket !== current) return;
+      // The server bounds Worker query budgets by renewing once per minute.
+      // Use short HTTP requests after renewal instead of cycling sockets forever.
+      if (
+        event?.code === 1001 &&
+        event.reason === 'Reconnect to refresh session'
+      )
+        usePolling();
+      else reconnect();
     };
     watchdog = setInterval(() => {
       const now = Date.now();
@@ -166,7 +194,7 @@ export function connectTable({ code, receive, status, expired }: Options) {
 
   function resume() {
     if (stopped || document.hidden) return;
-    if (!socket || Date.now() - lastReceived >= 15_000) reconnect(true);
+    if (!socket || Date.now() - lastReceived >= 15_000) reconnect(true, false);
     else send('sync');
   }
   function visibility() {
@@ -179,8 +207,7 @@ export function connectTable({ code, receive, status, expired }: Options) {
   function offline() {
     reconnect();
   }
-  function stop() {
-    stopped = true;
+  function cleanup() {
     if (retry) clearTimeout(retry);
     detach();
     document.removeEventListener('visibilitychange', visibility);
@@ -188,6 +215,11 @@ export function connectTable({ code, receive, status, expired }: Options) {
     window.removeEventListener('pageshow', resume);
     window.removeEventListener('online', resume);
     window.removeEventListener('offline', offline);
+  }
+  function stop() {
+    stopped = true;
+    cleanup();
+    fallback?.stop();
   }
   document.addEventListener('visibilitychange', visibility);
   window.addEventListener('focus', resume);
@@ -197,6 +229,7 @@ export function connectTable({ code, receive, status, expired }: Options) {
   status(false);
   open();
   function request(input: Record<string, unknown>): Promise<TableResult> {
+    if (fallback) return fallback.request(input);
     if (stopped || !ready || socket?.readyState !== WebSocket.OPEN)
       return Promise.reject(
         new Error('Reconnecting to the table. Try again when connected.'),
@@ -230,5 +263,5 @@ export function connectTable({ code, receive, status, expired }: Options) {
       }
     });
   }
-  return { stop, sync: resume, request };
+  return { stop, sync: () => (fallback ? fallback.sync() : resume()), request };
 }

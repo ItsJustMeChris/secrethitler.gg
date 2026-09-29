@@ -24,7 +24,7 @@ President seats use gold and crown markers; chancellor seats use purple and flag
 
 Eliminated players switch to matching cartoony dead portraits with X eyes and a goofy expression. All 30 characters have a transparent variant. Your own execution opens a “You were killed!” popup with a Keep watching button and a reminder to stay silent; it also appears when reconnecting after a missed execution. It stays dismissed through subsequent updates and resets on a rematch. The notice contains no secret role or party information, and an execution that ends the match still shows it. See [portrait generation](docs/DEAD-PORTRAITS.md).
 
-Player cards share the secret-role card proportions throughout the assembly, player selections, proposed governments, and investigations. The assembly uses compact rows with horizontal scrolling on phones. Policy peeks show the actual cards in deck order; investigation results use official party-membership cards. See [player and decision cards](docs/PLAYER-CARDS.md).
+Player cards share the secret-role card proportions throughout the assembly, player selections, proposed governments, and investigations. The assembly uses compact wrapping rows on phones. Action candidates wrap into centered rows without stretching the policy boards. Policy peeks show the actual cards in deck order; investigation results use official party-membership cards. See [player and decision cards](docs/PLAYER-CARDS.md).
 
 ## Move your seat to another device
 
@@ -65,6 +65,7 @@ npm test                 # Rules, secrecy boundaries, 600 rules + 600 AI games
 npm run test:rules       # Independent rulebook oracles and exhaustive bounded cases
 npm run test:rules:mutations # Check detection of 30 deliberately altered rule variants
 npm run test:websocket   # Socket-only match, room entry, controls, recovery and origin protection
+npm run test:fallback    # HTTP-only multiplayer, reconnect, presence renewal and AI pacing
 npm run test:transfer    # Two-device seat transfer, replay/race protection and old-device invalidation
 npm run test:rooms-api   # Room closure after last disconnect (takes about 65 seconds)
 npm run test:api         # Real local HTTP/D1 multiplayer tests; dev server must be running
@@ -88,9 +89,9 @@ The [rules audit](docs/RULES-AUDIT.md) maps the official rulebook and printed bo
 - Each move commits through a conditional database update by revision, retrying contention. Request IDs suppress duplicate actions. Phase and monotonically advancing round checks reject stale moves.
 - AI wake requests require an authenticated human seat and the same Origin/body validation as moves. The server chooses the bot and action; clients cannot supply either. Pace deadlines and actions commit together by revision, preventing multiple browsers from accelerating AI. Manual steps additionally require the host, paused AI, and the expected revision. No-op ticks do not write or extend room lifetime. Private bot memory is omitted from all projections.
 - Shuffle uses the platform CSPRNG and unbiased rejection sampling. The initial president is uniformly random.
-- Live updates use authenticated same-origin WebSockets. The browser receives personalized snapshots, checks heartbeats, and reconnects/resyncs after interrupted connections, tab restoration, and network recovery. Room entry, moves, chat, host controls, leave and rematch also use acknowledged socket commands. Interrupted commands release the controls and are never automatically replayed; the HTTP API remains for compatibility. The existing Sites/D1 hosting has no room coordinator binding, so each server stream checks the durable room revision every 750 ms; this is not an instantaneous cross-worker broadcast. See [real-time transport](docs/REALTIME.md).
+- Live updates start with authenticated same-origin WebSockets and switch to HTTP after repeated failures or planned session renewal. The browser receives personalized snapshots, checks heartbeats, and reconnects/resyncs after interrupted connections, tab restoration, and network recovery. Room entry, moves, chat, host controls, leave and rematch also use acknowledged socket commands. Interrupted commands release the controls and are never automatically replayed; the HTTP fallback uses the same authenticated operations and room leases. The existing Sites/D1 hosting has no room coordinator binding, so each server stream checks the durable room revision every 750 ms; this is not an instantaneous cross-worker broadcast. See [real-time transport](docs/REALTIME.md).
 - Request bodies are capped at 4 KiB. Origin checks, text validation, rate limits, security headers, no-store responses, and escaped React text protect the request surface. Rate limits are persisted across worker instances.
-- Rooms close 60 seconds after their last socket disconnects. Lost close events are covered by 45-second connection leases, followed by the same grace period. New rooms have 60 seconds to establish their first socket. Closed rooms cannot be revived by a reconnect, HTTP read, or move; expired rows are removed on access/creation. Sessions still expire after 7 days without use. No IP address is stored in plaintext in rate-limit records.
+- Rooms close 60 seconds after their last connection disconnects. Lost close events are covered by 45-second connection leases, followed by the same grace period. New rooms have 60 seconds to establish their first socket. Closed rooms cannot be revived by a reconnect, HTTP read, or move; expired rows are removed on access/creation. Sessions still expire after 7 days without use. No IP address is stored in plaintext in rate-limit records.
 
 ### Limits
 
