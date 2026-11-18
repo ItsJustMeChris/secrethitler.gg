@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 import { PolicyBoard, PolicyCard, PolicyPeek, asset } from './game-board';
 import { TablePlayerCard } from './player-card';
 import { useGameFeedback } from './game-feedback';
@@ -68,7 +75,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { coachTip } from '@/lib/coach';
-import type { Action, GameView, Power } from '@/lib/game';
+import { DEFAULT_HOUSE_RULES } from '@/lib/game';
+import type { Action, GameView, HouseRules, Power } from '@/lib/game';
 import { FairPlayProof, rememberFairness } from './fair-play';
 import { PortraitPicker } from './portrait-picker';
 import { ElectionRecap, PlayerEvent, PolicyRecap } from './table-events';
@@ -105,6 +113,8 @@ export default function GameTable() {
   const [code, setCode] = useState('');
   const [entry, setEntry] = useState<'create' | 'join' | 'solo'>('create');
   const [seats, setSeats] = useState('5');
+  const [soloHouseRules, setSoloHouseRules] =
+    useState<HouseRules>(DEFAULT_HOUSE_RULES);
   const [coaching, setCoaching] = useState(false);
   const [readAloud, setReadAloud] = useState(false);
   const [voiceAvailable, setVoiceAvailable] = useState(false);
@@ -421,7 +431,9 @@ export default function GameTable() {
         operation,
         name,
         portrait,
-        ...(operation === 'solo' ? { seats: Number(seats) } : {}),
+        ...(operation === 'solo'
+          ? { seats: Number(seats), houseRules: soloHouseRules }
+          : {}),
         code: code.replace(/[\s-]/g, '').toUpperCase(),
       });
       if ('left' in next) throw new Error('Could not enter the table.');
@@ -529,6 +541,8 @@ export default function GameTable() {
   }
   const me = game?.players.find((p) => p.id === game.me.id);
   const inGame = game && game.phase !== 'lobby';
+  const canChangeHouseRules =
+    game?.phase === 'lobby' && game.hostId === game.me.id;
   const lastElection = game ? electionResult(game) : null;
   const lastPolicy = game ? policyResult(game) : null;
   const investigatedPlayer = game?.players.find(
@@ -765,6 +779,9 @@ export default function GameTable() {
                       : undefined
                   }
                   count={game?.fascist ?? 0}
+                  investigateInsteadOfPeek={
+                    game.houseRules.investigateInsteadOfPeek
+                  }
                   players={
                     game?.initialCount || Math.max(game?.players.length ?? 5, 5)
                   }
@@ -988,9 +1005,22 @@ export default function GameTable() {
                             </SelectContent>
                           </Select>
                           <p>
-                            Original rules, secret roles, and a coach you can
-                            turn off. Five players is a good first table.
+                            Five players is a good first table. You can turn off
+                            the coach in Game settings.
                           </p>
+                          <details className="solo-house-rules">
+                            <summary>House rules</summary>
+                            <HouseRuleToggles
+                              rules={soloHouseRules}
+                              disabled={busy}
+                              onChange={(update) =>
+                                setSoloHouseRules((current) => ({
+                                  ...current,
+                                  ...update,
+                                }))
+                              }
+                            />
+                          </details>
                         </div>
                       )}
                       <PortraitPicker
@@ -1089,6 +1119,19 @@ export default function GameTable() {
                             disabled={busy}
                           />
                         </details>
+                        <Button
+                          variant="outline"
+                          className="lobby-house-rules-button"
+                          aria-haspopup="dialog"
+                          onClick={() => setSettingsOpen(true)}
+                        >
+                          <Settings2 /> House rules ·{' '}
+                          {
+                            Object.values(game.houseRules).filter(Boolean)
+                              .length
+                          }{' '}
+                          on
+                        </Button>
                         <Button
                           className={`primary-button ${me?.ready ? 'ready-button' : ''}`}
                           disabled={busy}
@@ -1355,6 +1398,21 @@ export default function GameTable() {
             <DialogTitle>Game settings</DialogTitle>
             <DialogDescription>Settle into the table.</DialogDescription>
           </DialogHeader>
+          {game && (
+            <section className="house-rules-settings">
+              <h3>House rules</h3>
+              <p>
+                {game.phase === 'lobby'
+                  ? 'The host sets these rules for everyone at the table.'
+                  : 'House rules are locked for this match.'}
+              </p>
+              <HouseRuleToggles
+                rules={game.houseRules}
+                disabled={!canChangeHouseRules || busy || !online}
+                onChange={(rules) => void act({ type: 'house-rules', rules })}
+              />
+            </section>
+          )}
           <div className="settings-row">
             <span>
               <Volume2 size={18} />
@@ -1647,7 +1705,7 @@ export default function GameTable() {
             <p className="eyebrow">THE FIELD GUIDE</p>
             <DialogTitle>Know the rules. Question everyone.</DialogTitle>
             <DialogDescription>
-              The standard game for 5–10 players. No house rules.
+              The standard game for 5–10 players, with optional house rules.
             </DialogDescription>
           </DialogHeader>
           <div className="guide-content">
@@ -1731,6 +1789,21 @@ export default function GameTable() {
                 ordinary Fascists, and always 1 Hitler. When fewer than 3
                 policies remain after legislation, the remaining draw and
                 discard piles are shuffled together.
+              </p>
+            </details>
+            <details>
+              <summary>
+                House rules <ChevronDown size={16} />
+              </summary>
+              <p>
+                <b>Persistent election tracker.</b> Failed governments carry
+                over when a government enacts a policy. Chaos still resets the
+                tracker after the third failure.
+              </p>
+              <p>
+                <b>Investigate instead of policy peek.</b> At a 5–6 player
+                table, the third Fascist policy can grant the president a
+                private investigation of another player’s party membership.
               </p>
             </details>
             <a
@@ -2004,6 +2077,50 @@ export default function GameTable() {
       </Dialog>
     </div>
   );
+}
+
+function HouseRuleToggles({
+  rules,
+  disabled,
+  onChange,
+}: {
+  rules: HouseRules;
+  disabled: boolean;
+  onChange: (rules: Partial<HouseRules>) => void;
+}) {
+  const id = useId();
+  const options = [
+    {
+      rule: 'persistentElectionTracker',
+      icon: Flag,
+      label: 'Persistent election tracker',
+      description:
+        'Failed governments carry over after a policy passes. Chaos resets the tracker.',
+    },
+    {
+      rule: 'investigateInsteadOfPeek',
+      icon: Eye,
+      label: 'Investigate instead of policy peek',
+      description:
+        'With 5–6 starting players, the third Fascist policy lets the president investigate another player’s party membership.',
+    },
+  ] as const;
+  return options.map(({ rule, icon: Icon, label, description }) => (
+    <div className="settings-row" key={rule}>
+      <span>
+        <Icon size={18} aria-hidden="true" />
+        <label htmlFor={`${id}-${rule}`}>{label}</label>
+        <small id={`${id}-${rule}-description`}>{description}</small>
+      </span>
+      <Switch
+        id={`${id}-${rule}`}
+        aria-describedby={`${id}-${rule}-description`}
+        checked={rules[rule]}
+        disabled={disabled}
+        onCheckedChange={(enabled) => onChange({ [rule]: enabled })}
+      />
+    </div>
+  ));
 }
 
 function CoachCard({ game }: { game: View }) {

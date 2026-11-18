@@ -70,10 +70,19 @@ export type PrivateNote = {
   targetId?: string;
   party?: Policy;
 };
+export type HouseRules = {
+  persistentElectionTracker: boolean;
+  investigateInsteadOfPeek: boolean;
+};
+export const DEFAULT_HOUSE_RULES: Readonly<HouseRules> = {
+  persistentElectionTracker: false,
+  investigateInsteadOfPeek: false,
+};
 export type Game = {
   fairness?: Fairness;
   previousFairness?: FairnessView | null;
   practice?: Practice;
+  houseRules?: HouseRules;
   code: string;
   hostId: string;
   players: Player[];
@@ -118,6 +127,7 @@ export type Action =
   | { type: 'add-bot' }
   | { type: 'fill-bots' }
   | { type: 'practice-settings'; paused?: boolean; pace?: 'normal' | 'fast' }
+  | { type: 'house-rules'; rules: Partial<HouseRules> }
   | { type: 'ready' }
   | { type: 'start' }
   | { type: 'leave' }
@@ -160,8 +170,19 @@ export function distribution(count: number) {
   const fascists = Math.floor((count - 3) / 2);
   return { liberal: count - fascists - 1, fascist: fascists, hitler: 1 };
 }
-export function powerTrack(count: number): (Power | null)[] {
-  if (count <= 6) return [null, null, 'peek', 'execute', 'execute', null];
+export function powerTrack(
+  count: number,
+  investigateInsteadOfPeek = false,
+): (Power | null)[] {
+  if (count <= 6)
+    return [
+      null,
+      null,
+      investigateInsteadOfPeek ? 'investigate' : 'peek',
+      'execute',
+      'execute',
+      null,
+    ];
   if (count <= 8)
     return [
       null,
@@ -189,6 +210,7 @@ export function newGame(
   validPortrait(portrait);
   return {
     fairness: undefined,
+    houseRules: { ...DEFAULT_HOUSE_RULES },
     code,
     hostId,
     players: [{ id: hostId, name, portrait, alive: true, ready: false }],
@@ -236,6 +258,18 @@ export function validPortrait(value: unknown): number {
   if (value === undefined) return 1;
   requireRule(isPortrait(value), 'Choose one of the available pictures.');
   return value;
+}
+export function updateHouseRules(game: Game, rules: unknown) {
+  requireRule(
+    rules !== null && typeof rules === 'object' && !Array.isArray(rules),
+    'Invalid house rules.',
+  );
+  for (const [key, value] of Object.entries(rules))
+    requireRule(
+      Object.hasOwn(DEFAULT_HOUSE_RULES, key) && typeof value === 'boolean',
+      'Invalid house rule setting.',
+    );
+  game.houseRules = { ...DEFAULT_HOUSE_RULES, ...game.houseRules, ...rules };
 }
 export function joinGame(
   game: Game,
@@ -394,7 +428,7 @@ function beginNomination(game: Game) {
 }
 function enactPolicy(game: Game, policy: Policy, chaos = false) {
   game[policy]++;
-  game.tracker = 0;
+  if (chaos || !game.houseRules?.persistentElectionTracker) game.tracker = 0;
   log(
     game,
     `${chaos ? 'Chaos enacted' : 'The government enacted'} a ${policy} policy.`,
@@ -418,7 +452,10 @@ function enactPolicy(game: Game, policy: Policy, chaos = false) {
     return finish(game, 'fascist', 'Six fascist policies were enacted.');
   replenish(game);
   if (!chaos && policy === 'fascist') {
-    game.power = powerTrack(game.initialCount)[game.fascist - 1];
+    game.power = powerTrack(
+      game.initialCount,
+      game.houseRules?.investigateInsteadOfPeek,
+    )[game.fascist - 1];
     if (game.power) {
       game.phase = 'executive';
       return;
@@ -478,6 +515,14 @@ export function applyAction(game: Game, actorId: string, action: Action) {
     if (action.paused !== undefined) game.practice.paused = action.paused;
     if (action.pace !== undefined) game.practice.pace = action.pace;
     game.practice.nextAt = Date.now() + 1200;
+    return;
+  }
+  if (action.type === 'house-rules') {
+    requireRule(
+      actorId === game.hostId && game.phase === 'lobby',
+      'Only the host can change house rules before the deal.',
+    );
+    updateHouseRules(game, action.rules);
     return;
   }
   if (action.type === 'chat') {
@@ -545,6 +590,7 @@ export function applyAction(game: Game, actorId: string, action: Action) {
       processed: game.processed,
       round: game.round + 1,
       practice,
+      houseRules: game.houseRules ?? fresh.houseRules,
     });
     return;
   }
@@ -848,6 +894,7 @@ export function viewFor(game: Game, viewerId: string) {
     fairness: fairnessView(game.fairness, game.phase === 'finished'),
     previousFairness: game.previousFairness ?? null,
     hostId: game.hostId,
+    houseRules: { ...DEFAULT_HOUSE_RULES, ...game.houseRules },
     phase: game.phase,
     round: game.round,
     revision: game.revision,

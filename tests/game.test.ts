@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   applyAction,
+  DEFAULT_HOUSE_RULES,
   distribution,
   eligibleChancellors,
   joinGame,
@@ -11,11 +12,12 @@ import {
   validName,
   viewFor,
 } from '../lib/game.ts';
-import type { Game, Policy } from '../lib/game.ts';
+import type { Game, HouseRules, Policy } from '../lib/game.ts';
 
-function started(n = 7): Game {
+function started(n = 7, rules?: Partial<HouseRules>): Game {
   const game = newGame('ABCDEFGH', 'p0', 'Player 0');
   for (let i = 1; i < n; i++) joinGame(game, `p${i}`, `Player ${i}`);
+  if (rules) applyAction(game, 'p0', { type: 'house-rules', rules });
   for (const p of game.players) applyAction(game, p.id, { type: 'ready' });
   applyAction(game, 'p0', { type: 'start' });
   game.president = 'p0';
@@ -199,6 +201,88 @@ void test('successful elections do not reset tracker; enacting policies does', (
   applyAction(game, game.president!, { type: 'discard', index: 0 });
   applyAction(game, game.chancellor!, { type: 'enact', index: 0 });
   assert.equal(game.tracker, 0);
+});
+void test('the persistent tracker carries failures across enactments and resets after chaos', () => {
+  const game = started(6, {
+    persistentElectionTracker: true,
+    investigateInsteadOfPeek: true,
+  });
+  fixedRoles(game);
+  game.fascist = 1;
+  elect(game, eligibleChancellors(game)[0], false);
+  enact(game, 'liberal');
+  assert.equal(game.tracker, 1);
+  elect(game, eligibleChancellors(game)[0], false);
+  enact(game, 'fascist');
+  assert.equal(game.tracker, 2);
+
+  game.deck[0] = 'fascist';
+  elect(game, eligibleChancellors(game)[0], false);
+  assert.equal(game.fascist, 3);
+  assert.equal(game.tracker, 0);
+  assert.equal(game.power, null);
+  assert.equal(game.lastChancellor, null);
+});
+void test('house investigation replaces policy peek only at five or six starting seats', () => {
+  for (let count = 5; count <= 10; count++) {
+    const game = started(count, { investigateInsteadOfPeek: true });
+    fixedRoles(game);
+    game.fascist = 2;
+    enact(game, 'fascist');
+    assert.equal(game.power, count <= 6 ? 'investigate' : 'special-election');
+    if (count > 6) continue;
+
+    const president = game.president!;
+    const target = game.players.at(-1)!.id;
+    const deck = [...game.deck];
+    assert.throws(() => applyAction(game, president, { type: 'power' }));
+    applyAction(game, president, { type: 'power', target });
+    const note = viewFor(game, president).me.notes.at(-1);
+    assert.equal(note?.targetId, target);
+    assert.equal(note?.party, 'fascist');
+    assert.equal(note?.policies, undefined);
+    assert.deepEqual(viewFor(game, target).me.notes, []);
+    assert.deepEqual(game.deck, deck);
+  }
+});
+void test('house rules default off, accept independent lobby edits from the host, and carry over to a rematch', () => {
+  const game = newGame('ABCDEFGH', 'p0', 'Player 0');
+  for (let i = 1; i < 5; i++) joinGame(game, `p${i}`, `Player ${i}`);
+  assert.deepEqual(viewFor(game, 'p1').houseRules, DEFAULT_HOUSE_RULES);
+  delete game.houseRules;
+  assert.deepEqual(viewFor(game, 'p1').houseRules, DEFAULT_HOUSE_RULES);
+  const tracker = {
+    type: 'house-rules',
+    rules: { persistentElectionTracker: true },
+  } as const;
+  assert.throws(() => applyAction(game, 'p1', tracker));
+  assert.throws(() =>
+    applyAction(game, 'p0', {
+      type: 'house-rules',
+      rules: { persistentElectionTracker: 'true' as unknown as boolean },
+    }),
+  );
+  applyAction(game, 'p0', tracker);
+  applyAction(game, 'p0', {
+    type: 'house-rules',
+    rules: { investigateInsteadOfPeek: true },
+  });
+  assert.deepEqual(viewFor(game, 'p1').houseRules, {
+    persistentElectionTracker: true,
+    investigateInsteadOfPeek: true,
+  });
+  for (const p of game.players) applyAction(game, p.id, { type: 'ready' });
+  applyAction(game, 'p0', { type: 'start' });
+  assert.throws(() => applyAction(game, 'p0', tracker));
+  game.liberal = 4;
+  enact(game, 'liberal');
+  applyAction(game, 'p0', { type: 'rematch' });
+  assert.equal(game.phase, 'lobby');
+  assert.equal(game.tracker, 0);
+  assert.deepEqual(viewFor(game, 'p1').houseRules, {
+    persistentElectionTracker: true,
+    investigateInsteadOfPeek: true,
+  });
 });
 void test('legislative hands belong only to current holder; invalid choices rejected', () => {
   const game = started();

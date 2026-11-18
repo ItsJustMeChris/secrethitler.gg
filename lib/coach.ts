@@ -55,7 +55,10 @@ export function coachTip(game: GameView) {
     return {
       title: 'One policy becomes law',
       text:
-        'The chancellor enacts one of the two policies and discards the other. An enacted policy resets the election tracker.' +
+        'The chancellor enacts one of the two policies and discards the other.' +
+        (game.houseRules.persistentElectionTracker
+          ? ' The election tracker keeps its progress until chaos.'
+          : ' Enacting a policy resets the election tracker.') +
         (game.fascist >= 5
           ? ' Veto is unlocked: the chancellor may request it, but the president must agree. An agreed veto advances the tracker instead.'
           : ' Veto becomes available after the fifth Fascist policy.'),

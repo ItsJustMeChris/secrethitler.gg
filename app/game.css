@@ -692,6 +692,12 @@ input::placeholder {
   min-height: 0;
   overflow: hidden;
 }
+.house-investigation-slot {
+  fill: #a7160e;
+  font-family: var(--font-typewriter);
+  font-size: 15px;
+  font-weight: 700;
+}
 .election-puck {
   fill: #292929;
   stroke: #f8edd5;
@@ -1977,6 +1983,22 @@ input::placeholder {
 }
 .settings-dialog {
   max-width: 560px;
+}
+.house-rules-settings {
+  padding-top: 8px;
+}
+.house-rules-settings > p {
+  color: var(--muted-ink);
+  font-size: 13px;
+}
+.solo-house-rules summary {
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 600;
+  margin-top: 10px;
+}
+.lobby-house-rules-button {
+  width: 100%;
 }
 .settings-row {
   display: flex;

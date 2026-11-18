@@ -6,6 +6,7 @@ import {
   newGame,
   randomInt,
   RuleError,
+  updateHouseRules,
   validName,
   validPortrait,
   viewFor,
@@ -304,6 +305,8 @@ async function performOperation(
         const game = newGame(code, session.id, name, portrait);
         game.fairness = await createFairness();
         if (input.operation === 'solo') {
+          if (input.houseRules !== undefined)
+            updateHouseRules(game, input.houseRules);
           while (game.players.length < Number(input.seats)) addBot(game);
           game.players[0].ready = true;
           applyAction(game, session.id, { type: 'start' });

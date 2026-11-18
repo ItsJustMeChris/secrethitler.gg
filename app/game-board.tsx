@@ -11,17 +11,21 @@ export function PolicyBoard({
   players,
   highlightedCount,
   tracker = 0,
+  investigateInsteadOfPeek = false,
 }: {
   kind: Policy;
   count: number;
   players: number;
   highlightedCount?: number;
   tracker?: number;
+  investigateInsteadOfPeek?: boolean;
 }) {
   const titleId = useId();
+  const investigationIconId = useId();
   const total = kind === 'liberal' ? 5 : 6;
   const liberal = kind === 'liberal';
-  const powers = powerTrack(players);
+  const powers = powerTrack(players, investigateInsteadOfPeek);
+  const houseBoard = !liberal && players <= 6 && investigateInsteadOfPeek;
   const board = liberal
     ? 'board-liberal'
     : `board-fascist-${players <= 6 ? '5-6' : players <= 8 ? '7-8' : '9-10'}`;
@@ -55,6 +59,37 @@ export function PolicyBoard({
                   .join('. ')}
           </title>
           <image href={asset(board)} width="1683" height="650" />
+          {houseBoard && (
+            <g className="house-investigation-slot" aria-hidden="true">
+              <mask
+                id={investigationIconId}
+                maskUnits="userSpaceOnUse"
+                style={{ maskType: 'alpha' }}
+              >
+                <image
+                  href={asset('power-investigate')}
+                  x="673"
+                  y="219"
+                  width="114"
+                  height="114"
+                />
+              </mask>
+              <rect x="631" y="213" width="188" height="184" fill="#fc5f4a" />
+              <rect
+                x="673"
+                y="219"
+                width="114"
+                height="114"
+                mask={`url(#${investigationIconId})`}
+              />
+              <text x="725" y="367" textAnchor="middle">
+                <tspan x="725">INVESTIGATE A PLAYER’S</tspan>
+                <tspan x="725" dy="16">
+                  PARTY MEMBERSHIP
+                </tspan>
+              </text>
+            </g>
+          )}
           {liberal && (
             <g
               className="election-puck"
